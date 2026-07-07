@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🟣 Matrix DCL · Team</title>
+<meta name="description" content="★これは Matrix（社長）DCL チーム版｜ログインして本日の作業を確認">
+<meta property="og:title" content="🟣 Matrix DCL · Team">
+<meta property="og:description" content="★これは Matrix（社長）DCL チーム版｜ログインして本日の作業を確認">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#F4F1E8; --surface:#FFFFFF; --ink:#20302A; --muted:#80806F;
+    --line:#E5E0D2; --line-soft:#EFEBDF;
+    --amber:#C27A2A; --amber-soft:#F4E5CC;
+    --pine:#3C5C46; --pine-soft:#E2EBE1;
+    --slate:#5E7480; --slate-soft:#E5ECEE;
+    --shadow:0 1px 2px rgba(32,48,42,.05), 0 8px 24px rgba(32,48,42,.06);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:"Zen Kaku Gothic New", system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "PingFang TC", sans-serif; background:var(--bg); color:var(--ink); line-height:1.55; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:840px; margin:0 auto; padding:26px 18px 80px}
+  h1{font-family:"Zen Maru Gothic",sans-serif; font-weight:700; font-size:22px; margin:0}
+  .topbar{display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap}
+  .who{font-size:13px; color:var(--muted); margin-left:auto}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px}
+  .card + .card{margin-top:16px}
+  label.fl{font-size:12px; color:var(--muted); display:block; margin-bottom:5px}
+  input, select, textarea, button{font-family:inherit}
+  input[type=email], input[type=text], input[type=date], input[type=number], select, textarea{width:100%; font-size:15px; color:var(--ink); border:1px solid var(--line); border-radius:10px; background:#FCFBF7; padding:10px 12px}
+  textarea{resize:vertical; min-height:60px}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber)}
+  .btn{font-weight:700; font-size:15px; border:none; border-radius:11px; padding:12px 16px; cursor:pointer; transition:.14s; background:var(--amber); color:#fff}
+  .btn:hover{filter:brightness(1.05)}
+  .btn.done{background:var(--pine)}
+  .btn-ghost{background:#fff; border:1px solid var(--line); color:var(--ink)}
+  .btn-ghost:hover{background:var(--line-soft)}
+  .btn-sm{font-size:13px; padding:8px 12px; border-radius:9px}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .msg{background:#DCF2C9; border-radius:4px 16px 16px 16px; padding:14px 15px; font-size:14px; line-height:1.7; white-space:pre-wrap; word-break:break-word; box-shadow:0 1px 1px rgba(0,0,0,.06); min-height:50px}
+  .hint{font-size:12.5px; color:var(--muted)}
+  .err{color:#b04a4a; font-size:13px; margin-top:8px}
+  .ok{color:var(--pine); font-size:13px; margin-top:8px}
+  .hidden{display:none !important}
+  .tabs{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap}
+  .tab{font-size:14px; border:1px solid var(--line); background:#fff; color:var(--ink); padding:9px 14px; border-radius:999px; cursor:pointer}
+  .tab.active{background:var(--amber); color:#fff; border-color:var(--amber)}
+  .lamp{font-size:24px}
+  /* entries */
+  .entry{border:1px solid var(--line-soft); border-radius:12px; background:#FCFBF7; padding:10px; margin-bottom:10px}
+  .ehead{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+  .enum{font-family:"Zen Maru Gothic",sans-serif; font-weight:700; color:var(--amber)}
+  .edel{margin-left:auto; border:none; background:var(--slate-soft); color:var(--slate); width:28px; height:28px; border-radius:8px; cursor:pointer}
+  .pool{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .pool button{font-size:12px; border:1px dashed var(--line); background:#fff; color:var(--ink); padding:5px 9px; border-radius:999px; cursor:pointer}
+  .pool button:hover{background:var(--amber-soft); border-color:var(--amber); border-style:solid}
+  .add{font-size:13px; color:var(--amber); background:var(--amber-soft); border:none; border-radius:9px; padding:8px 12px; cursor:pointer}
+  .mrow{display:flex; gap:8px; align-items:center; margin-bottom:8px}
+  .mrow .del{border:none; background:var(--slate-soft); color:var(--slate); width:30px; height:30px; border-radius:8px; cursor:pointer; flex:none}
+  .histitem{border:1px solid var(--line-soft); border-radius:12px; padding:12px; margin-bottom:10px; background:#FCFBF7}
+  .histitem h4{margin:0 0 6px; font-size:14px}
+  details.mini>summary{cursor:pointer; font-size:13px; color:var(--muted); list-style:none}
+  details.mini>summary::-webkit-details-marker{display:none}
+  .spin{font-size:13px; color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== AUTH ===== -->
+  <div id="authScreen">
+    <div class="topbar"><span class="lamp">🟣</span><h1>Matrix DCL</h1></div>
+    <div class="card" style="max-width:420px; margin:0 auto">
+      <div id="step1">
+        <label class="fl">Gmail でログイン</label>
+        <input type="email" id="email" placeholder="you@gmail.com" autocomplete="email">
+        <div style="height:10px"></div>
+        <button class="btn" id="sendBtn" style="width:100%">認証コードを送る</button>
+        <p class="hint" style="margin-top:12px">登録メールに 6 桁のコードが届きます。管理者に登録された方のみ利用できます。</p>
+        <div class="err hidden" id="err1"></div>
+      </div>
+      <div id="step2" class="hidden">
+        <label class="fl">メールに届いた 6 桁コード</label>
+        <input type="text" id="code" inputmode="numeric" placeholder="123456" maxlength="8">
+        <div style="height:10px"></div>
+        <button class="btn" id="verifyBtn" style="width:100%">ログイン</button>
+        <div style="height:8px"></div>
+        <button class="btn-ghost btn btn-sm" id="backBtn" style="width:100%">メールを入れ直す</button>
+        <div class="err hidden" id="err2"></div>
+        <div class="ok hidden" id="ok2">コードを送信しました。メールをご確認ください。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== UNAUTHORIZED ===== -->
+  <div id="unauthScreen" class="hidden">
+    <div class="topbar"><span class="lamp">🔒</span><h1>アクセス権がありません</h1><span class="who" id="whoU"></span></div>
+    <div class="card">
+      <p>このメールはまだ登録されていません。管理者に連絡してください。</p>
+      <button class="btn-ghost btn btn-sm" id="logoutU">ログアウト</button>
+    </div>
+  </div>
+
+  <!-- ===== STAFF ===== -->
+  <div id="staffScreen" class="hidden">
+    <div class="topbar"><span class="lamp">📋</span><h1 id="staffHello">本日の作業</h1><span class="who" id="whoS"></span></div>
+    <div class="card">
+      <div class="hint" id="staffDate" style="margin-bottom:10px"></div>
+      <div class="msg" id="staffMsg">読み込み中…</div>
+      <p class="hint" style="margin-top:10px">※ 本日ぶんのみ表示されます。過去の履歴は表示されません。</p>
+      <div style="margin-top:12px"><button class="btn-ghost btn btn-sm" id="reloadS">更新</button> <button class="btn-ghost btn btn-sm" id="logoutS">ログアウト</button></div>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN ===== -->
+  <div id="adminScreen" class="hidden">
+    <div class="topbar"><span class="lamp">🟣</span><h1>Matrix DCL 管理</h1><span class="who" id="whoA"></span></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="make">作成</button>
+      <button class="tab" data-tab="hist">履歴</button>
+      <button class="tab" data-tab="mem">メンバー</button>
+      <button class="tab" data-tab="set">設定</button>
+    </div>
+
+    <!-- MAKE -->
+    <div id="tab-make">
+      <div class="card">
+        <div class="row">
+          <div style="flex:1; min-width:150px"><label class="fl">日付</label><input type="date" id="mDate"></div>
+          <div style="flex:1; min-width:150px"><label class="fl">担当者</label><select id="mStaff"></select></div>
+        </div>
+      </div>
+      <div class="card">
+        <div id="entries"></div>
+        <button class="add" id="addEntry" style="width:100%; padding:11px">＋ 時間区間を追加（1.0 / 2.0 …）</button>
+      </div>
+      <div class="card">
+        <label class="fl">プレビュー</label>
+        <div class="msg" id="preview"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="saveBtn" style="flex:1">クラウドに保存</button>
+          <button class="btn-ghost btn" id="copyBtn">LINE用コピー</button>
+          <button class="btn-ghost btn" id="clearBtn">クリア</button>
+        </div>
+        <div class="ok hidden" id="saveOk">保存しました ✓（担当者が今日ログインすると見えます）</div>
+        <div class="err hidden" id="saveErr"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="tab-hist" class="hidden">
+      <div class="card">
+        <div class="row" style="align-items:flex-end">
+          <div style="flex:1; min-width:160px"><label class="fl">日付を選んで履歴を見る</label><input type="date" id="hDate"></div>
+          <button class="btn btn-sm" id="hLoad">表示</button>
+        </div>
+      </div>
+      <div id="histList"></div>
+    </div>
+
+    <!-- MEMBERS -->
+    <div id="tab-mem" class="hidden">
+      <div class="card">
+        <label class="fl">メンバー追加（このメールだけがログイン・閲覧できます）</label>
+        <div class="row">
+          <input type="email" id="newEmail" placeholder="staff@gmail.com" style="flex:2; min-width:160px">
+          <input type="text" id="newName" placeholder="名前" style="flex:1; min-width:90px">
+          <input type="text" id="newNick" placeholder="ニックネーム" style="flex:1; min-width:90px">
+        </div>
+        <div style="margin-top:10px"><button class="btn btn-sm" id="addMem">追加</button></div>
+        <div class="err hidden" id="memErr"></div>
+      </div>
+      <div class="card">
+        <label class="fl">登録メンバー</label>
+        <div id="rosterList" class="spin">読み込み中…</div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="tab-set" class="hidden">
+      <div class="card">
+        <label class="fl">上ヘッダー行</label>
+        <input type="text" id="cfgHeader">
+        <div style="height:12px"></div>
+        <label class="fl">下フッター（複数行可）</label>
+        <textarea id="cfgFooter" rows="3"></textarea>
+        <div style="height:12px"></div>
+        <label class="fl">作業ボタン（カンマ区切り）</label>
+        <textarea id="cfgPool" rows="2"></textarea>
+        <p class="hint">この設定はこの端末に保存されます（あなた専用の入力補助）。</p>
+        <div style="margin-top:6px"><button class="btn-ghost btn btn-sm" id="logoutA">ログアウト</button></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL="https://ywleifnwqsgdlchnwzlg.supabase.co";
+const SUPABASE_KEY="sb_publishable_zim0T9mDbCgAolSuce2HdA_WQJ2RbYc";
+const ADMIN_EMAIL="annovillas@gmail.com";
+const db=supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DEF={ header:"💡💡💡😃💡💡💡",
+  footer:"✅Remember IPO =Items Placement and Organised✅\nwhen cleaning,  take care of BBQ mat,  kitchen corners,\n😃📝🔐🛠️📞⏰💝😃",
+  pool:["Glamping","New land","Sankando","CUBE","月江苑","oginohouse","BBQ","villas","D","E","F","G","退房チェック","事務所整理"] };
+function loadLocal(){ try{ return {...DEF, ...(JSON.parse(localStorage.getItem("teamdcl_cfg"))||{})}; }catch(e){ return {...DEF}; } }
+function saveLocal(c){ try{ localStorage.setItem("teamdcl_cfg", JSON.stringify(c)); }catch(e){} }
+let lcfg=loadLocal();
+
+const q=id=>document.getElementById(id);
+const show=(id)=>{ ["authScreen","unauthScreen","staffScreen","adminScreen"].forEach(s=>q(s).classList.toggle("hidden", s!==id)); };
+function todayStr(){ const t=new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
+function fmtDate(s){ return (s||"").replaceAll("-",""); }
+
+function buildMsg(data, work_date){
+  const L=[];
+  const header=(data&&data.header)||lcfg.header;
+  const footer=(data&&data.footer)!=null?data.footer:lcfg.footer;
+  if(header && header.trim()) L.push(header);
+  L.push(fmtDate(work_date));
+  const blocks=(data&&data.blocks)||[];
+  const used=blocks.filter(b=>b.text&&b.text.trim());
+  used.forEach((b,k)=>{
+    L.push(`${k+1}.0`);
+    b.text.split("\n").forEach(l=>{ if(l.trim()) L.push(l); });
+    L.push("");
+  });
+  (footer||"").split("\n").forEach(l=>L.push(l));
+  return L.join("\n");
+}
+
+/* ---------- AUTH ---------- */
+q("sendBtn").onclick=async()=>{
+  const email=q("email").value.trim().toLowerCase();
+  q("err1").classList.add("hidden");
+  if(!email || !email.includes("@")){ q("err1").textContent="メールアドレスを入力してください。"; q("err1").classList.remove("hidden"); return; }
+  q("sendBtn").disabled=true; q("sendBtn").textContent="送信中…";
+  const { error }=await db.auth.signInWithOtp({ email, options:{ shouldCreateUser:true } });
+  q("sendBtn").disabled=false; q("sendBtn").textContent="認証コードを送る";
+  if(error){ q("err1").textContent=error.message; q("err1").classList.remove("hidden"); return; }
+  window._email=email;
+  q("step1").classList.add("hidden"); q("step2").classList.remove("hidden"); q("ok2").classList.remove("hidden");
+};
+q("backBtn").onclick=()=>{ q("step2").classList.add("hidden"); q("step1").classList.remove("hidden"); };
+q("verifyBtn").onclick=async()=>{
+  const token=q("code").value.trim();
+  q("err2").classList.add("hidden");
+  if(!token){ q("err2").textContent="コードを入力してください。"; q("err2").classList.remove("hidden"); return; }
+  q("verifyBtn").disabled=true; q("verifyBtn").textContent="確認中…";
+  const { error }=await db.auth.verifyOtp({ email:window._email, token, type:"email" });
+  q("verifyBtn").disabled=false; q("verifyBtn").textContent="ログイン";
+  if(error){ q("err2").textContent="コードが正しくないか期限切れです。"; q("err2").classList.remove("hidden"); return; }
+  route();
+};
+async function logout(){ await db.auth.signOut(); location.reload(); }
+["logoutA","logoutS","logoutU"].forEach(id=>{ const el=q(id); if(el) el.onclick=logout; });
+
+/* ---------- ROUTER ---------- */
+async function route(){
+  const { data:{ session } }=await db.auth.getSession();
+  if(!session){ show("authScreen"); return; }
+  const email=(session.user.email||"").toLowerCase();
+  if(email===ADMIN_EMAIL){ q("whoA").textContent=email; show("adminScreen"); initAdmin(); return; }
+  const { data, error }=await db.from("staff_roster").select("*").eq("email", email).maybeSingle();
+  if(!error && data && data.active){ q("whoS").textContent=email; show("staffScreen"); initStaff(data); }
+  else { q("whoU").textContent=email; show("unauthScreen"); }
+}
+
+/* ---------- STAFF ---------- */
+async function initStaff(me){
+  q("staffHello").textContent=(me.nickname||me.name||"")+" さんの本日の作業";
+  q("staffDate").textContent=todayStr();
+  await loadStaffToday();
+  q("reloadS").onclick=loadStaffToday;
+}
+async function loadStaffToday(){
+  q("staffMsg").textContent="読み込み中…";
+  // RLS: 従業員は「自分・本日」のみ取得できる
+  const { data, error }=await db.from("assignments").select("*").order("work_date",{ascending:false}).limit(1);
+  if(error){ q("staffMsg").textContent="読み込みエラー: "+error.message; return; }
+  if(!data || !data.length){ q("staffMsg").textContent="本日の作業はまだ登録されていません。"; return; }
+  const a=data[0];
+  q("staffMsg").textContent=buildMsg(a.data, a.work_date);
+}
+
+/* ---------- ADMIN ---------- */
+let entries=[], curStaff="", roster=[];
+function seedEntries(){ entries=[{text:""},{text:""},{text:""}]; }
+
+async function initAdmin(){
+  // tabs
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.onclick=()=>{
+      document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+      t.classList.add("active");
+      ["make","hist","mem","set"].forEach(n=>q("tab-"+n).classList.toggle("hidden", n!==t.dataset.tab));
+      if(t.dataset.tab==="mem") loadRoster();
+    };
+  });
+  q("mDate").value=todayStr();
+  q("hDate").value=todayStr();
+  seedEntries();
+  await loadRoster();
+  fillStaffSelect();
+  q("mDate").onchange=loadForSelection;
+  q("mStaff").onchange=loadForSelection;
+  await loadForSelection();
+  wireAdminButtons();
+  // settings
+  q("cfgHeader").value=lcfg.header; q("cfgFooter").value=lcfg.footer; q("cfgPool").value=lcfg.pool.join(", ");
+  q("cfgHeader").oninput=()=>{ lcfg.header=q("cfgHeader").value; saveLocal(lcfg); renderPreview(); };
+  q("cfgFooter").oninput=()=>{ lcfg.footer=q("cfgFooter").value; saveLocal(lcfg); renderPreview(); };
+  q("cfgPool").oninput=()=>{ lcfg.pool=q("cfgPool").value.split(",").map(s=>s.trim()).filter(Boolean); saveLocal(lcfg); renderEntries(); };
+}
+
+function fillStaffSelect(){
+  const sel=q("mStaff"); sel.innerHTML="";
+  if(!roster.length){ const o=document.createElement("option"); o.value=""; o.textContent="（メンバー未登録）"; sel.appendChild(o); }
+  roster.forEach(r=>{ const o=document.createElement("option"); o.value=r.email; o.textContent=(r.nickname||r.name||r.email); sel.appendChild(o); });
+  curStaff=sel.value;
+}
+
+async function loadForSelection(){
+  curStaff=q("mStaff").value;
+  const d=q("mDate").value;
+  if(!curStaff){ seedEntries(); renderEntries(); renderPreview(); return; }
+  const { data }=await db.from("assignments").select("*").eq("work_date", d).eq("staff_email", curStaff).maybeSingle();
+  if(data && data.data && Array.isArray(data.data.blocks) && data.data.blocks.length){ entries=data.data.blocks.map(b=>({text:b.text||""})); }
+  else seedEntries();
+  renderEntries(); renderPreview();
+}
+
+function renderEntries(){
+  const host=q("entries"); host.innerHTML="";
+  entries.forEach((e,i)=>{
+    const card=document.createElement("div"); card.className="entry";
+    const head=document.createElement("div"); head.className="ehead";
+    const num=document.createElement("span"); num.className="enum"; num.textContent=(i+1)+".0";
+    const del=document.createElement("button"); del.className="edel"; del.textContent="×"; del.onclick=()=>{ entries.splice(i,1); renderEntries(); renderPreview(); };
+    head.append(num,del); card.appendChild(head);
+    const ta=document.createElement("textarea"); ta.value=e.text||""; ta.placeholder="作業内容（自由入力・→ 可）";
+    ta.oninput=()=>{ e.text=ta.value; renderPreview(); };
+    card.appendChild(ta);
+    const pool=document.createElement("div"); pool.className="pool";
+    lcfg.pool.forEach(tok=>{ const b=document.createElement("button"); b.textContent=tok; b.onclick=()=>{ let v=ta.value; if(v&&!v.endsWith("\n")) v+="→"; v+=tok; ta.value=v; e.text=v; ta.focus(); renderPreview(); }; pool.appendChild(b); });
+    card.appendChild(pool);
+    host.appendChild(card);
+  });
+}
+function currentData(){ return { blocks:entries, header:lcfg.header, footer:lcfg.footer }; }
+function renderPreview(){ q("preview").textContent=buildMsg(currentData(), q("mDate").value); }
+
+function wireAdminButtons(){
+  q("addEntry").onclick=()=>{ entries.push({text:""}); renderEntries(); renderPreview(); };
+  q("clearBtn").onclick=()=>{ seedEntries(); renderEntries(); renderPreview(); };
+  q("copyBtn").onclick=async()=>{
+    const text=buildMsg(currentData(), q("mDate").value);
+    try{ await navigator.clipboard.writeText(text); }catch(e){ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+    q("copyBtn").textContent="コピー済 ✓"; setTimeout(()=>q("copyBtn").textContent="LINE用コピー",1500);
+  };
+  q("saveBtn").onclick=async()=>{
+    q("saveOk").classList.add("hidden"); q("saveErr").classList.add("hidden");
+    if(!curStaff){ q("saveErr").textContent="担当者を選んでください（メンバー未登録なら『メンバー』で追加）。"; q("saveErr").classList.remove("hidden"); return; }
+    q("saveBtn").disabled=true; q("saveBtn").textContent="保存中…";
+    const payload={ work_date:q("mDate").value, staff_email:curStaff, data:currentData(), updated_at:new Date().toISOString() };
+    const { error }=await db.from("assignments").upsert(payload, { onConflict:"work_date,staff_email" });
+    q("saveBtn").disabled=false; q("saveBtn").textContent="クラウドに保存";
+    if(error){ q("saveErr").textContent="保存エラー: "+error.message; q("saveErr").classList.remove("hidden"); }
+    else { q("saveBtn").classList.add("done"); q("saveOk").classList.remove("hidden"); setTimeout(()=>q("saveBtn").classList.remove("done"),1200); }
+  };
+  q("hLoad").onclick=loadHistory;
+  q("addMem").onclick=addMember;
+}
+
+async function loadRoster(){
+  const { data, error }=await db.from("staff_roster").select("*").order("created_at",{ascending:true});
+  roster=(error?[]:data)||[];
+  fillStaffSelect();
+  renderRoster();
+}
+function renderRoster(){
+  const host=q("rosterList"); if(!host) return; host.innerHTML="";
+  if(!roster.length){ host.textContent="まだ登録がありません。"; return; }
+  roster.forEach(r=>{
+    const row=document.createElement("div"); row.className="mrow";
+    const info=document.createElement("div"); info.style.flex="1";
+    info.innerHTML=`<b>${r.nickname||r.name||"(名前なし)"}</b> <span class="hint">${r.email}${r.active?"":" · 停止中"}</span>`;
+    const del=document.createElement("button"); del.className="del"; del.textContent="×"; del.title="削除";
+    del.onclick=async()=>{ if(!confirm(r.email+" を削除しますか？")) return; await db.from("staff_roster").delete().eq("email", r.email); loadRoster(); };
+    row.append(info, del); host.appendChild(row);
+  });
+}
+async function addMember(){
+  q("memErr").classList.add("hidden");
+  const email=q("newEmail").value.trim().toLowerCase();
+  const name=q("newName").value.trim(), nick=q("newNick").value.trim();
+  if(!email||!email.includes("@")){ q("memErr").textContent="メールを入力してください。"; q("memErr").classList.remove("hidden"); return; }
+  const { error }=await db.from("staff_roster").upsert({ email, name, nickname:nick, active:true }, { onConflict:"email" });
+  if(error){ q("memErr").textContent="エラー: "+error.message; q("memErr").classList.remove("hidden"); return; }
+  q("newEmail").value=""; q("newName").value=""; q("newNick").value="";
+  loadRoster();
+}
+
+async function loadHistory(){
+  const d=q("hDate").value; const host=q("histList"); host.innerHTML='<div class="spin">読み込み中…</div>';
+  const { data, error }=await db.from("assignments").select("*").eq("work_date", d).order("staff_email");
+  if(error){ host.innerHTML='<div class="err">'+error.message+'</div>'; return; }
+  if(!data||!data.length){ host.innerHTML='<div class="card">この日の記録はありません。</div>'; return; }
+  host.innerHTML="";
+  const nameOf=e=>{ const r=roster.find(x=>x.email===e); return r?(r.nickname||r.name||e):e; };
+  data.forEach(a=>{
+    const it=document.createElement("div"); it.className="histitem";
+    it.innerHTML=`<h4>${nameOf(a.staff_email)} <span class="hint">${a.staff_email}</span></h4>`;
+    const m=document.createElement("div"); m.className="msg"; m.textContent=buildMsg(a.data, a.work_date);
+    it.appendChild(m); host.appendChild(it);
+  });
+}
+
+/* ---------- BOOT ---------- */
+db.auth.onAuthStateChange((event, session)=>{ if(event==="SIGNED_IN" && session) route(); });
+route();
+</script>
+</body>
+</html>
