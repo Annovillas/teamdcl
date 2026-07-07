@@ -76,22 +76,15 @@
     <div class="topbar"><span class="lamp">🟣</span><h1>Matrix DCL</h1></div>
     <div class="card" style="max-width:420px; margin:0 auto">
       <div id="step1">
-        <label class="fl">Gmail でログイン</label>
+        <label class="fl">メール</label>
         <input type="email" id="email" placeholder="you@gmail.com" autocomplete="email">
         <div style="height:10px"></div>
-        <button class="btn" id="sendBtn" style="width:100%">認証コードを送る</button>
-        <p class="hint" style="margin-top:12px">登録メールに 6 桁のコードが届きます。管理者に登録された方のみ利用できます。</p>
+        <label class="fl">パスワード</label>
+        <input type="password" id="pw" placeholder="パスワード" autocomplete="current-password">
+        <div style="height:12px"></div>
+        <button class="btn" id="loginBtn" style="width:100%">ログイン</button>
+        <p class="hint" style="margin-top:12px">初回はこのメール＋パスワードで自動的にアカウントが作成されます。管理者に登録された方のみ内容が見られます。</p>
         <div class="err hidden" id="err1"></div>
-      </div>
-      <div id="step2" class="hidden">
-        <label class="fl">メールに届いた 6 桁コード</label>
-        <input type="text" id="code" inputmode="numeric" placeholder="123456" maxlength="8">
-        <div style="height:10px"></div>
-        <button class="btn" id="verifyBtn" style="width:100%">ログイン</button>
-        <div style="height:8px"></div>
-        <button class="btn-ghost btn btn-sm" id="backBtn" style="width:100%">メールを入れ直す</button>
-        <div class="err hidden" id="err2"></div>
-        <div class="ok hidden" id="ok2">コードを送信しました。メールをご確認ください。</div>
       </div>
     </div>
   </div>
@@ -234,29 +227,37 @@ function buildMsg(data, work_date){
   return L.join("\n");
 }
 
-/* ---------- AUTH ---------- */
-q("sendBtn").onclick=async()=>{
+/* ---------- AUTH (email + password) ---------- */
+async function doLogin(){
   const email=q("email").value.trim().toLowerCase();
+  const pw=q("pw").value;
   q("err1").classList.add("hidden");
-  if(!email || !email.includes("@")){ q("err1").textContent="メールアドレスを入力してください。"; q("err1").classList.remove("hidden"); return; }
-  q("sendBtn").disabled=true; q("sendBtn").textContent="送信中…";
-  const { error }=await db.auth.signInWithOtp({ email, options:{ shouldCreateUser:true } });
-  q("sendBtn").disabled=false; q("sendBtn").textContent="認証コードを送る";
-  if(error){ q("err1").textContent=error.message; q("err1").classList.remove("hidden"); return; }
-  window._email=email;
-  q("step1").classList.add("hidden"); q("step2").classList.remove("hidden"); q("ok2").classList.remove("hidden");
-};
-q("backBtn").onclick=()=>{ q("step2").classList.add("hidden"); q("step1").classList.remove("hidden"); };
-q("verifyBtn").onclick=async()=>{
-  const token=q("code").value.trim();
-  q("err2").classList.add("hidden");
-  if(!token){ q("err2").textContent="コードを入力してください。"; q("err2").classList.remove("hidden"); return; }
-  q("verifyBtn").disabled=true; q("verifyBtn").textContent="確認中…";
-  const { error }=await db.auth.verifyOtp({ email:window._email, token, type:"email" });
-  q("verifyBtn").disabled=false; q("verifyBtn").textContent="ログイン";
-  if(error){ q("err2").textContent="コードが正しくないか期限切れです。"; q("err2").classList.remove("hidden"); return; }
+  if(!email || !email.includes("@") || !pw){ q("err1").textContent="メールとパスワードを入力してください。"; q("err1").classList.remove("hidden"); return; }
+  q("loginBtn").disabled=true; q("loginBtn").textContent="ログイン中…";
+  // 1) 既存アカウントでログイン
+  let { error }=await db.auth.signInWithPassword({ email, password:pw });
+  if(error){
+    // 2) 未作成なら作成を試みる
+    const { data:sd, error:e2 }=await db.auth.signUp({ email, password:pw });
+    if(e2){
+      q("loginBtn").disabled=false; q("loginBtn").textContent="ログイン";
+      if(/already|registered|exists/i.test(e2.message)) q("err1").textContent="パスワードが違います。";
+      else if(/rate/i.test(e2.message)) q("err1").textContent="少し待ってから再度お試しください。";
+      else if(/least|password/i.test(e2.message)) q("err1").textContent="パスワードは6文字以上にしてください。";
+      else q("err1").textContent=e2.message;
+      q("err1").classList.remove("hidden"); return;
+    }
+    if(!sd || !sd.session){
+      q("loginBtn").disabled=false; q("loginBtn").textContent="ログイン";
+      q("err1").textContent="設定が必要です：Supabase で「Confirm email」をオフにしてください。";
+      q("err1").classList.remove("hidden"); return;
+    }
+  }
+  q("loginBtn").disabled=false; q("loginBtn").textContent="ログイン";
   route();
-};
+}
+q("loginBtn").onclick=doLogin;
+q("pw").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
 async function logout(){ await db.auth.signOut(); location.reload(); }
 ["logoutA","logoutS","logoutU"].forEach(id=>{ const el=q(id); if(el) el.onclick=logout; });
 
