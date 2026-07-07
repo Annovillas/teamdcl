@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🟣 Matrix DCL · Team</title>
-<meta name="description" content="★これは Matrix（社長）DCL チーム版｜ログインして本日の作業を確認">
+<meta name="description" content="順番と詳細をご確認ください。ご不明な点があれば、遠慮なくご連絡ください。">
 <meta property="og:title" content="🟣 Matrix DCL · Team">
-<meta property="og:description" content="★これは Matrix（社長）DCL チーム版｜ログインして本日の作業を確認">
+<meta property="og:description" content="順番と詳細をご確認ください。ご不明な点があれば、遠慮なくご連絡ください。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -84,11 +84,15 @@
   details.mini>summary{cursor:pointer; font-size:13px; color:var(--muted); list-style:none}
   details.mini>summary::-webkit-details-marker{display:none}
   .spin{font-size:13px; color:var(--muted)}
-  .langsel{position:fixed; top:12px; right:12px; z-index:50; font-size:13px; padding:6px 26px 6px 10px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); box-shadow:var(--shadow); cursor:pointer}
+  .langseg{position:fixed; top:11px; right:11px; z-index:50; display:inline-flex; gap:2px; background:rgba(255,255,255,.92); backdrop-filter:blur(6px); border:1px solid var(--line); border-radius:999px; padding:3px; box-shadow:var(--shadow)}
+  .langseg button{font-family:inherit; font-size:12.5px; font-weight:600; border:none; background:transparent; color:var(--muted); padding:6px 12px; border-radius:999px; cursor:pointer; transition:.15s; white-space:nowrap; line-height:1}
+  .langseg button.active{background:var(--amber); color:#fff; box-shadow:0 1px 3px rgba(194,122,42,.4)}
+  .langseg button:hover:not(.active){color:var(--ink); background:var(--amber-soft)}
+  @media (max-width:520px){ .langseg button{padding:6px 9px; font-size:12px} }
 </style>
 </head>
 <body>
-<select id="langSel" class="langsel"><option value="en">EN</option><option value="ja">日本語</option><option value="zh">中文</option></select>
+<div id="langSel" class="langseg"><button data-l="en">EN</button><button data-l="ja">日本語</button><button data-l="zh">中文</button></div>
 <div class="wrap">
 
   <!-- ===== AUTH ===== -->
@@ -293,7 +297,7 @@ function applyLang(){
   document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent=tr(el.getAttribute("data-i18n")); });
   document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.setAttribute("placeholder", tr(el.getAttribute("data-i18n-ph"))); });
   document.documentElement.lang=(lang==="zh"?"zh-Hant":lang);
-  const ls=q("langSel"); if(ls) ls.value=lang;
+  const ls=q("langSel"); if(ls) ls.querySelectorAll("button").forEach(b=>b.classList.toggle("active", b.dataset.l===lang));
   refreshDynamic();
 }
 function refreshDynamic(){
@@ -705,8 +709,7 @@ async function loadHistory(){
 }
 
 /* ---------- BOOT ---------- */
-q("langSel").value=lang;
-q("langSel").onchange=()=>{ lang=q("langSel").value; localStorage.setItem("teamdcl_lang",lang); applyLang(); };
+document.querySelectorAll("#langSel button").forEach(b=>{ b.onclick=()=>{ lang=b.dataset.l; localStorage.setItem("teamdcl_lang",lang); applyLang(); }; });
 applyLang();
 db.auth.onAuthStateChange((event, session)=>{ if(event==="SIGNED_OUT"){ location.reload(); } });
 route();
