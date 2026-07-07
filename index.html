@@ -42,6 +42,17 @@
   .btn-sm{font-size:13px; padding:8px 12px; border-radius:9px}
   .row{display:flex; gap:10px; flex-wrap:wrap}
   .msg{background:#DCF2C9; border-radius:4px 16px 16px 16px; padding:14px 15px; font-size:14px; line-height:1.7; white-space:pre-wrap; word-break:break-word; box-shadow:0 1px 1px rgba(0,0,0,.06); min-height:50px}
+  .msg:has(.rv-block){white-space:normal}
+  .rv-head{text-align:center; margin-bottom:6px; font-size:15px}
+  .rv-date{font-weight:700; margin-bottom:10px}
+  .rv-block{background:#fff; border-radius:12px; padding:10px 12px; margin-bottom:9px; box-shadow:0 1px 1px rgba(0,0,0,.05)}
+  .rv-num{display:inline-block; background:var(--amber); color:#fff; font-weight:700; border-radius:8px; padding:1px 9px; font-size:13px; margin-bottom:6px}
+  .rv-ttl{font-weight:700; margin:2px 0 4px}
+  .rv-line{margin:3px 0; line-height:1.65; word-break:break-word}
+  .rv-stop{margin:6px 0; padding-left:8px; border-left:2px solid var(--amber-soft)}
+  .rv-item{margin:2px 0 2px 16px; font-size:13.5px; color:#4a4a3c}
+  .rv-foot{margin-top:8px; color:#3a5a45}
+  .mapchip{display:inline-block; background:#e7f0fb; color:#2a6dc9; border:1px solid #cfe0f5; border-radius:999px; padding:1px 9px; font-size:12.5px; text-decoration:none; margin-left:4px; white-space:nowrap}
   .hint{font-size:12.5px; color:var(--muted)}
   .err{color:#b04a4a; font-size:13px; margin-top:8px}
   .ok{color:var(--pine); font-size:13px; margin-top:8px}
@@ -73,9 +84,11 @@
   details.mini>summary{cursor:pointer; font-size:13px; color:var(--muted); list-style:none}
   details.mini>summary::-webkit-details-marker{display:none}
   .spin{font-size:13px; color:var(--muted)}
+  .langsel{position:fixed; top:12px; right:12px; z-index:50; font-size:13px; padding:6px 26px 6px 10px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); box-shadow:var(--shadow); cursor:pointer}
 </style>
 </head>
 <body>
+<select id="langSel" class="langsel"><option value="en">EN</option><option value="ja">日本語</option><option value="zh">中文</option></select>
 <div class="wrap">
 
   <!-- ===== AUTH ===== -->
@@ -83,14 +96,14 @@
     <div class="topbar"><span class="lamp">🟣</span><h1>Matrix DCL</h1></div>
     <div class="card" style="max-width:420px; margin:0 auto">
       <div id="step1">
-        <label class="fl">メール</label>
+        <label class="fl" data-i18n="email">メール</label>
         <input type="email" id="email" placeholder="you@gmail.com" autocomplete="email">
         <div style="height:10px"></div>
-        <label class="fl">パスワード</label>
-        <input type="password" id="pw" placeholder="パスワード" autocomplete="current-password">
+        <label class="fl" data-i18n="password">パスワード</label>
+        <input type="password" id="pw" data-i18n-ph="password" placeholder="パスワード" autocomplete="current-password">
         <div style="height:12px"></div>
-        <button class="btn" id="loginBtn" style="width:100%">ログイン</button>
-        <p class="hint" style="margin-top:12px">初回はこのメール＋パスワードで自動的にアカウントが作成されます。管理者に登録された方のみ内容が見られます。</p>
+        <button class="btn" id="loginBtn" style="width:100%" data-i18n="login">ログイン</button>
+        <p class="hint" style="margin-top:12px" data-i18n="loginHint">初回はこのメール＋パスワードで自動的にアカウントが作成されます。管理者に登録された方のみ内容が見られます。</p>
         <div class="err hidden" id="err1"></div>
       </div>
     </div>
@@ -98,10 +111,10 @@
 
   <!-- ===== UNAUTHORIZED ===== -->
   <div id="unauthScreen" class="hidden">
-    <div class="topbar"><span class="lamp">🔒</span><h1>アクセス権がありません</h1><span class="who" id="whoU"></span></div>
+    <div class="topbar"><span class="lamp">🔒</span><h1 data-i18n="unauthTitle">アクセス権がありません</h1><span class="who" id="whoU"></span></div>
     <div class="card">
-      <p>このメールはまだ登録されていません。管理者に連絡してください。</p>
-      <button class="btn-ghost btn btn-sm" id="logoutU">ログアウト</button>
+      <p data-i18n="unauthBody">このメールはまだ登録されていません。管理者に連絡してください。</p>
+      <button class="btn-ghost btn btn-sm" id="logoutU" data-i18n="logout">ログアウト</button>
     </div>
   </div>
 
@@ -111,42 +124,42 @@
     <div class="card">
       <div class="hint" id="staffDate" style="margin-bottom:10px"></div>
       <div class="msg" id="staffMsg">読み込み中…</div>
-      <p class="hint" style="margin-top:10px">※ 本日ぶんのみ表示されます。過去の履歴は表示されません。</p>
-      <div style="margin-top:12px"><button class="btn-ghost btn btn-sm" id="reloadS">更新</button> <button class="btn-ghost btn btn-sm" id="logoutS">ログアウト</button></div>
+      <p class="hint" style="margin-top:10px" data-i18n="staffNote">※ 本日ぶんのみ表示されます。過去の履歴は表示されません。</p>
+      <div style="margin-top:12px"><button class="btn-ghost btn btn-sm" id="reloadS" data-i18n="refresh">更新</button> <button class="btn-ghost btn btn-sm" id="logoutS" data-i18n="logout">ログアウト</button></div>
     </div>
   </div>
 
   <!-- ===== ADMIN ===== -->
   <div id="adminScreen" class="hidden">
-    <div class="topbar"><span class="lamp">🟣</span><h1>Matrix DCL 管理</h1><span class="who" id="whoA"></span></div>
+    <div class="topbar"><span class="lamp">🟣</span><h1 data-i18n="adminTitle">Matrix DCL 管理</h1><span class="who" id="whoA"></span></div>
     <div class="tabs">
-      <button class="tab active" data-tab="make">作成</button>
-      <button class="tab" data-tab="hist">履歴</button>
-      <button class="tab" data-tab="mem">メンバー</button>
-      <button class="tab" data-tab="set">設定</button>
+      <button class="tab active" data-tab="make" data-i18n="tabMake">作成</button>
+      <button class="tab" data-tab="hist" data-i18n="tabHist">履歴</button>
+      <button class="tab" data-tab="mem" data-i18n="tabMem">メンバー</button>
+      <button class="tab" data-tab="set" data-i18n="tabSet">設定</button>
     </div>
 
     <!-- MAKE -->
     <div id="tab-make">
       <div class="card">
         <div class="row">
-          <div style="flex:1; min-width:150px"><label class="fl">日付</label><input type="date" id="mDate"></div>
-          <div style="flex:1; min-width:150px"><label class="fl">担当者</label><select id="mStaff"></select></div>
+          <div style="flex:1; min-width:150px"><label class="fl" data-i18n="date">日付</label><input type="date" id="mDate"></div>
+          <div style="flex:1; min-width:150px"><label class="fl" data-i18n="staffSel">担当者</label><select id="mStaff"></select></div>
         </div>
       </div>
       <div class="card">
         <div id="entries"></div>
-        <button class="add" id="addEntry" style="width:100%; padding:11px">＋ 時間区間を追加（1.0 / 2.0 …）</button>
+        <button class="add" id="addEntry" style="width:100%; padding:11px" data-i18n="addEntry">＋ 時間区間を追加（1.0 / 2.0 …）</button>
       </div>
       <div class="card">
-        <label class="fl">プレビュー</label>
+        <label class="fl" data-i18n="preview">プレビュー</label>
         <div class="msg" id="preview"></div>
         <div class="row" style="margin-top:12px">
-          <button class="btn" id="saveBtn" style="flex:1">クラウドに保存</button>
-          <button class="btn-ghost btn" id="copyBtn">LINE用コピー</button>
-          <button class="btn-ghost btn" id="clearBtn">クリア</button>
+          <button class="btn" id="saveBtn" style="flex:1" data-i18n="save">クラウドに保存</button>
+          <button class="btn-ghost btn" id="copyBtn" data-i18n="copyLine">LINE用コピー</button>
+          <button class="btn-ghost btn" id="clearBtn" data-i18n="clear">クリア</button>
         </div>
-        <div class="ok hidden" id="saveOk">保存しました ✓（担当者が今日ログインすると見えます）</div>
+        <div class="ok hidden" id="saveOk" data-i18n="saveOk">保存しました ✓（担当者が今日ログインすると見えます）</div>
         <div class="err hidden" id="saveErr"></div>
       </div>
     </div>
@@ -155,8 +168,8 @@
     <div id="tab-hist" class="hidden">
       <div class="card">
         <div class="row" style="align-items:flex-end">
-          <div style="flex:1; min-width:160px"><label class="fl">日付を選んで履歴を見る</label><input type="date" id="hDate"></div>
-          <button class="btn btn-sm" id="hLoad">表示</button>
+          <div style="flex:1; min-width:160px"><label class="fl" data-i18n="histPick">日付を選んで履歴を見る</label><input type="date" id="hDate"></div>
+          <button class="btn btn-sm" id="hLoad" data-i18n="show">表示</button>
         </div>
       </div>
       <div id="histList"></div>
@@ -165,34 +178,34 @@
     <!-- MEMBERS -->
     <div id="tab-mem" class="hidden">
       <div class="card">
-        <label class="fl">メンバー追加（このメールだけがログイン・閲覧できます）</label>
+        <label class="fl" data-i18n="memAdd">メンバー追加（このメールだけがログイン・閲覧できます）</label>
         <div class="row">
-          <input type="email" id="newEmail" placeholder="staff@gmail.com" style="flex:2; min-width:160px">
-          <input type="text" id="newName" placeholder="名前" style="flex:1; min-width:90px">
-          <input type="text" id="newNick" placeholder="ニックネーム" style="flex:1; min-width:90px">
+          <input type="email" id="newEmail" data-i18n-ph="phEmail" placeholder="staff@gmail.com" style="flex:2; min-width:160px">
+          <input type="text" id="newName" data-i18n-ph="phName" placeholder="名前" style="flex:1; min-width:90px">
+          <input type="text" id="newNick" data-i18n-ph="phNick" placeholder="ニックネーム" style="flex:1; min-width:90px">
         </div>
-        <div style="margin-top:10px"><button class="btn btn-sm" id="addMem">追加</button></div>
+        <div style="margin-top:10px"><button class="btn btn-sm" id="addMem" data-i18n="add">追加</button></div>
         <div class="err hidden" id="memErr"></div>
       </div>
       <div class="card">
-        <label class="fl">登録メンバー</label>
-        <div id="rosterList" class="spin">読み込み中…</div>
+        <label class="fl" data-i18n="memList">登録メンバー</label>
+        <div id="rosterList" class="spin">…</div>
       </div>
     </div>
 
     <!-- SETTINGS -->
     <div id="tab-set" class="hidden">
       <div class="card">
-        <label class="fl">上ヘッダー行</label>
+        <label class="fl" data-i18n="cfgHeaderL">上ヘッダー行</label>
         <input type="text" id="cfgHeader">
         <div style="height:12px"></div>
-        <label class="fl">下フッター（複数行可）</label>
+        <label class="fl" data-i18n="cfgFooterL">下フッター（複数行可）</label>
         <textarea id="cfgFooter" rows="3"></textarea>
         <div style="height:12px"></div>
-        <label class="fl">作業ボタン（カンマ区切り）</label>
+        <label class="fl" data-i18n="cfgPoolL">作業ボタン（カンマ区切り）</label>
         <textarea id="cfgPool" rows="2"></textarea>
-        <p class="hint">この設定はこの端末に保存されます（あなた専用の入力補助）。</p>
-        <div style="margin-top:6px"><button class="btn-ghost btn btn-sm" id="logoutA">ログアウト</button></div>
+        <p class="hint" data-i18n="cfgHint">この設定はこの端末に保存されます（あなた専用の入力補助）。</p>
+        <div style="margin-top:6px"><button class="btn-ghost btn btn-sm" id="logoutA" data-i18n="logout">ログアウト</button></div>
       </div>
     </div>
   </div>
@@ -217,6 +230,77 @@ const show=(id)=>{ ["authScreen","unauthScreen","staffScreen","adminScreen"].for
 function todayStr(){ const t=new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
 function fmtDate(s){ return (s||"").replaceAll("-",""); }
 
+/* ---------- i18n ---------- */
+const T={
+ en:{ email:"Email", password:"Password", login:"Log in", loggingIn:"Logging in…",
+  loginHint:"First time: an account is created with this email & password. Only members added by the admin can see content.",
+  eMailPw:"Enter email and password.", eWrongPw:"Wrong password.", eRate:"Please wait a moment and try again.", ePwLen:"Password must be 6+ characters.", eConfirm:"Setup needed: turn off \"Confirm email\" in Supabase.",
+  unauthTitle:"No access", unauthBody:"This email is not registered yet. Please contact the admin.", logout:"Log out",
+  staffNote:"※ Only today's tasks are shown. Past history is hidden.", refresh:"Refresh", loading:"Loading…", noToday:"No tasks for today yet.", loadErr:"Load error: ", todayFor:"{name} — Today's tasks",
+  adminTitle:"Matrix DCL Admin", tabMake:"Create", tabHist:"History", tabMem:"Members", tabSet:"Settings",
+  date:"Date", staffSel:"Staff (this person)", staffPick:"Select staff…", noMember:"(no members)",
+  addEntry:"＋ Add time block (1.0 / 2.0 …)", preview:"Preview", save:"Save to cloud", copyLine:"Copy for LINE", clear:"Clear",
+  saving:"Saving…", saveOk:"Saved ✓ (visible when the staff logs in today)", pickStaff:"Select staff first (add one in Members).", saveErr:"Save error: ", copied:"Copied ✓", copyManual:"Copy manually",
+  histPick:"Pick a date to view history", show:"Show", histNone:"No records for this day.",
+  memAdd:"Add member (only this email can log in / view)", phName:"Name", phNick:"Nickname", add:"Add", memList:"Registered members", memEmpty:"No members yet.", memErrMail:"Enter an email.", memErr:"Error: ", delConfirm:"Delete {email}?",
+  cfgHeaderL:"Top header line", cfgFooterL:"Bottom footer (multi-line)", cfgPoolL:"Work buttons (comma separated)", cfgHint:"Saved on this device (your input helper).",
+  typeText:"Text", typeTransport:"🚚 Transport", typeShopping:"🛒 Shopping", phWork:"Task content (free text, → ok)",
+  subject:"Subject (optional)", from:"From", gmapUrl:"↳ Google Map URL", to:"To", storage:"Storage", method:"Method", note:"Note",
+  carLoc:"Car location", vehicle:"Vehicle", refuel:"Refuel", dests:"Destinations (in order)", destName:"Destination name", items:"Items", phItem:"Item", phSize:"Size", phQty:"Qty", addItem:"＋ Item", addDest:"＋ Destination", destOrder:"Stop {n}",
+  tMBike:"Bicycle", tMTruck:"Truck", tMCoop:"With other staff", tMOther:"Other", tVCar:"Private car", tRNo:"Not needed", tRYes:"Refuel", tRCheck:"To check",
+  transportTask:"Transport", shoppingTitle:"Shopping", noContent:"(No tasks)", mapBtn:"🗺️ Map", phEmail:"staff@gmail.com" },
+ ja:{ email:"メール", password:"パスワード", login:"ログイン", loggingIn:"ログイン中…",
+  loginHint:"初回はこのメール＋パスワードで自動的にアカウントが作成されます。管理者に登録された方のみ内容が見られます。",
+  eMailPw:"メールとパスワードを入力してください。", eWrongPw:"パスワードが違います。", eRate:"少し待ってから再度お試しください。", ePwLen:"パスワードは6文字以上にしてください。", eConfirm:"設定が必要です：Supabase で「Confirm email」をオフにしてください。",
+  unauthTitle:"アクセス権がありません", unauthBody:"このメールはまだ登録されていません。管理者に連絡してください。", logout:"ログアウト",
+  staffNote:"※ 本日ぶんのみ表示されます。過去の履歴は表示されません。", refresh:"更新", loading:"読み込み中…", noToday:"本日の作業はまだ登録されていません。", loadErr:"読み込みエラー: ", todayFor:"{name} さんの本日の作業",
+  adminTitle:"Matrix DCL 管理", tabMake:"作成", tabHist:"履歴", tabMem:"メンバー", tabSet:"設定",
+  date:"日付", staffSel:"担当者（この1人ぶん）", staffPick:"担当者を選択…", noMember:"（メンバー未登録）",
+  addEntry:"＋ 時間区間を追加（1.0 / 2.0 …）", preview:"プレビュー", save:"クラウドに保存", copyLine:"LINE用コピー", clear:"クリア",
+  saving:"保存中…", saveOk:"保存しました ✓（担当者が今日ログインすると見えます）", pickStaff:"担当者を選んでください（メンバーで追加）。", saveErr:"保存エラー: ", copied:"コピー済 ✓", copyManual:"手動でコピー",
+  histPick:"日付を選んで履歴を見る", show:"表示", histNone:"この日の記録はありません。",
+  memAdd:"メンバー追加（このメールだけがログイン・閲覧できます）", phName:"名前", phNick:"ニックネーム", add:"追加", memList:"登録メンバー", memEmpty:"まだ登録がありません。", memErrMail:"メールを入力してください。", memErr:"エラー: ", delConfirm:"{email} を削除しますか？",
+  cfgHeaderL:"上ヘッダー行", cfgFooterL:"下フッター（複数行可）", cfgPoolL:"作業ボタン（カンマ区切り）", cfgHint:"この設定はこの端末に保存されます（あなた専用の入力補助）。",
+  typeText:"テキスト", typeTransport:"🚚 搬運", typeShopping:"🛒 買い出し", phWork:"作業内容（自由入力・→ 可）",
+  subject:"件名（任意）", from:"出発地", gmapUrl:"↳ Google Map URL", to:"到着地", storage:"保管場所", method:"手段", note:"メモ",
+  carLoc:"車の場所", vehicle:"車種", refuel:"給油", dests:"目的地（順番に）", destName:"目的地名", items:"購入品", phItem:"品名", phSize:"サイズ", phQty:"数", addItem:"＋ 品目", addDest:"＋ 目的地", destOrder:"第{n}順位",
+  tMBike:"自転車", tMTruck:"トラック", tMCoop:"他スタッフ協力", tMOther:"その他", tVCar:"自家用車", tRNo:"不要", tRYes:"給油する", tRCheck:"要確認",
+  transportTask:"搬運タスク", shoppingTitle:"買い出し", noContent:"（作業内容なし）", mapBtn:"🗺️ 地図", phEmail:"staff@gmail.com" },
+ zh:{ email:"信箱", password:"密碼", login:"登入", loggingIn:"登入中…",
+  loginHint:"第一次用此信箱＋密碼會自動建立帳號。只有管理員加入的成員才看得到內容。",
+  eMailPw:"請輸入信箱與密碼。", eWrongPw:"密碼錯誤。", eRate:"請稍候再試。", ePwLen:"密碼至少 6 個字。", eConfirm:"需設定：請在 Supabase 關閉「Confirm email」。",
+  unauthTitle:"沒有存取權限", unauthBody:"這個信箱尚未註冊,請聯絡管理員。", logout:"登出",
+  staffNote:"※ 只顯示今天的作業,不顯示過去的紀錄。", refresh:"更新", loading:"載入中…", noToday:"今天還沒有登記作業。", loadErr:"載入錯誤: ", todayFor:"{name} 今天的作業",
+  adminTitle:"Matrix DCL 管理", tabMake:"建立", tabHist:"歷史", tabMem:"成員", tabSet:"設定",
+  date:"日期", staffSel:"擔當者（這一位）", staffPick:"選擇擔當者…", noMember:"（尚無成員）",
+  addEntry:"＋ 新增時段（1.0 / 2.0 …）", preview:"預覽", save:"儲存到雲端", copyLine:"複製給 LINE", clear:"清除",
+  saving:"儲存中…", saveOk:"已儲存 ✓（該員工今天登入即可看到）", pickStaff:"請先選擇擔當者（可在成員新增）。", saveErr:"儲存錯誤: ", copied:"已複製 ✓", copyManual:"請手動複製",
+  histPick:"選日期查看歷史", show:"顯示", histNone:"這一天沒有紀錄。",
+  memAdd:"新增成員（只有這個信箱能登入/查看）", phName:"名字", phNick:"暱稱", add:"新增", memList:"已登記成員", memEmpty:"尚無成員。", memErrMail:"請輸入信箱。", memErr:"錯誤: ", delConfirm:"確定刪除 {email}？",
+  cfgHeaderL:"頂部裝飾行", cfgFooterL:"底部固定結尾（可多行）", cfgPoolL:"作業按鈕（逗號分隔）", cfgHint:"此設定存在本機（你的輸入輔助）。",
+  typeText:"文字", typeTransport:"🚚 搬運", typeShopping:"🛒 採購", phWork:"作業內容（自由輸入・可用 →）",
+  subject:"標題（可選）", from:"出發地", gmapUrl:"↳ Google 地圖 URL", to:"目的地", storage:"存放位置", method:"方式", note:"備註",
+  carLoc:"車輛位置", vehicle:"車輛類型", refuel:"加油", dests:"目的地（依順序）", destName:"目的地名稱", items:"採購品項", phItem:"品名", phSize:"尺寸", phQty:"數量", addItem:"＋ 品項", addDest:"＋ 目的地", destOrder:"第{n}站",
+  tMBike:"自行車", tMTruck:"卡車", tMCoop:"與其他員工合作", tMOther:"其他", tVCar:"私家車", tRNo:"不需要", tRYes:"要加油", tRCheck:"待確認",
+  transportTask:"搬運任務", shoppingTitle:"採購", noContent:"（無作業內容）", mapBtn:"🗺️ 地圖", phEmail:"staff@gmail.com" }
+};
+let lang=localStorage.getItem("teamdcl_lang")||"en"; if(!T[lang]) lang="en";
+function tr(k){ return (T[lang]&&T[lang][k]!=null)?T[lang][k]:(T.en[k]!=null?T.en[k]:k); }
+function trf(k,map){ let s=tr(k); for(const key in map) s=s.split("{"+key+"}").join(map[key]); return s; }
+const CODEMAP={bike:"tMBike",truck:"tMTruck",coop:"tMCoop",other:"tMOther",car:"tVCar",no:"tRNo",yes:"tRYes",check:"tRCheck"};
+function dispCode(v){ return CODEMAP[v]?tr(CODEMAP[v]):(v||""); }
+function applyLang(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent=tr(el.getAttribute("data-i18n")); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.setAttribute("placeholder", tr(el.getAttribute("data-i18n-ph"))); });
+  document.documentElement.lang=(lang==="zh"?"zh-Hant":lang);
+  const ls=q("langSel"); if(ls) ls.value=lang;
+  refreshDynamic();
+}
+function refreshDynamic(){
+  try{ if(!q("adminScreen").classList.contains("hidden")){ renderEntries(); renderPreview(); renderRoster(); } }catch(e){}
+  try{ if(!q("staffScreen").classList.contains("hidden") && window._staffData) renderStaffMsg(); }catch(e){}
+}
+
 function urlSuffix(u){ return (u&&String(u).trim())?(" "+String(u).trim()):""; }
 function pushLines(L,s){ (s||"").split("\n").forEach(l=>{ if(l.trim()) L.push(l); }); }
 function blockHasContent(e){
@@ -228,18 +312,18 @@ function blockHasContent(e){
 function blockBody(e){
   const t=(e&&e.type)||"text"; const L=[];
   if(t==="transport"){
-    L.push("🚚 "+((e.title&&e.title.trim())||"搬運タスク"));
-    if(e.from) L.push("出発: "+e.from+urlSuffix(e.fromUrl));
-    if(e.to) L.push("到着: "+e.to+urlSuffix(e.toUrl));
-    if(e.storage) L.push("保管: "+e.storage+urlSuffix(e.storageUrl));
-    if(e.method) L.push("手段: "+e.method);
+    L.push("🚚 "+((e.title&&e.title.trim())||tr("transportTask")));
+    if(e.from) L.push(tr("from")+": "+e.from+urlSuffix(e.fromUrl));
+    if(e.to) L.push(tr("to")+": "+e.to+urlSuffix(e.toUrl));
+    if(e.storage) L.push(tr("storage")+": "+e.storage+urlSuffix(e.storageUrl));
+    if(e.method) L.push(tr("method")+": "+dispCode(e.method));
     pushLines(L, e.note);
   } else if(t==="shopping"){
-    L.push("🛒 買い出し"+((e.title&&e.title.trim())?(" "+e.title.trim()):""));
-    if(e.from) L.push("出発: "+e.from+urlSuffix(e.fromUrl));
-    if(e.carLocation) L.push("車の場所: "+e.carLocation);
-    if(e.vehicle) L.push("車種: "+e.vehicle);
-    if(e.refuel) L.push("給油: "+e.refuel);
+    L.push("🛒 "+tr("shoppingTitle")+((e.title&&e.title.trim())?(" "+e.title.trim()):""));
+    if(e.from) L.push(tr("from")+": "+e.from+urlSuffix(e.fromUrl));
+    if(e.carLocation) L.push(tr("carLoc")+": "+e.carLocation);
+    if(e.vehicle) L.push(tr("vehicle")+": "+dispCode(e.vehicle));
+    if(e.refuel) L.push(tr("refuel")+": "+dispCode(e.refuel));
     (e.stops||[]).forEach((s,si)=>{
       if(!(s.name||(s.items||[]).some(it=>it.name||it.size||it.qty))) return;
       const c="①②③④⑤⑥⑦⑧⑨"[si]||((si+1)+".");
@@ -276,34 +360,100 @@ function normBlock(b){
     note:b.note||""};
   return {type:"text", text:b.text||""};
 }
+function esc2(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function iconForText(line){
+  const map=[
+    [/清掃|掃除|クリーニング|そうじ/,"🧹"],
+    [/退房|チェックアウト|check ?out/i,"🧳"],
+    [/チェックイン|check ?in/i,"🔑"],
+    [/チェック|点検|確認|検査|check/i,"✅"],
+    [/搬運|運搬|搬入|運ぶ|搬出/,"🚚"],
+    [/買い出し|購入|採購|仕入/,"🛒"],
+    [/ゴミ|ごみ/,"🗑️"],
+    [/洗浄|洗い|洗う/,"🧽"],
+    [/BBQ|バーベキュー/i,"🍖"],
+    [/事務所|オフィス|office/i,"🗄️"],
+    [/鍵|カギ/,"🔑"],
+    [/写真|撮影|photo/i,"📷"],
+    [/Glamping|グランピング|Sankando|山間堂|New ?land|新土地|CUBE|月江苑|oginohouse|villa/i,"🏠"],
+  ];
+  for(const [re,ic] of map){ if(re.test(line)) return ic; }
+  return "";
+}
+function richInline(t){
+  return esc2(t).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" class="mapchip">🗺️ 地図</a>');
+}
+function mapChip(url){ if(!url||!String(url).trim()) return ""; return ` <a href="${esc2(String(url).trim())}" target="_blank" rel="noopener" class="mapchip">${tr("mapBtn")}</a>`; }
+function rvRow(icon,label,val,url){ return `<div class="rv-line">${icon} <b>${label}</b>：${esc2(val)}${mapChip(url)}</div>`; }
+function blockRich(e){
+  const t=(e&&e.type)||"text"; let s="";
+  if(t==="transport"){
+    s+=`<div class="rv-ttl">🚚 ${esc2((e.title&&e.title.trim())||tr("transportTask"))}</div>`;
+    if(e.from) s+=rvRow("📍",tr("from"),e.from,e.fromUrl);
+    if(e.to) s+=rvRow("🏁",tr("to"),e.to,e.toUrl);
+    if(e.storage) s+=rvRow("📦",tr("storage"),e.storage,e.storageUrl);
+    if(e.method) s+=rvRow("🛠️",tr("method"),dispCode(e.method));
+    (e.note||"").split("\n").forEach(l=>{ if(l.trim()) s+=`<div class="rv-line">📝 ${richInline(l)}</div>`; });
+  } else if(t==="shopping"){
+    s+=`<div class="rv-ttl">🛒 ${esc2(tr("shoppingTitle"))} ${esc2(e.title||"")}</div>`;
+    if(e.from) s+=rvRow("📍",tr("from"),e.from,e.fromUrl);
+    if(e.carLocation) s+=rvRow("🅿️",tr("carLoc"),e.carLocation);
+    if(e.vehicle) s+=rvRow(e.vehicle==="truck"?"🚚":"🚗",tr("vehicle"),dispCode(e.vehicle));
+    if(e.refuel) s+=rvRow("⛽",tr("refuel"),dispCode(e.refuel));
+    (e.stops||[]).forEach((st,si)=>{
+      if(!(st.name||(st.items||[]).some(it=>it.name||it.size||it.qty))) return;
+      const c="①②③④⑤⑥⑦⑧⑨"[si]||((si+1)+".");
+      s+=`<div class="rv-stop"><div class="rv-line">${c} <b>${esc2(st.name||"")}</b>${mapChip(st.url)}</div>`;
+      (st.items||[]).forEach(it=>{ const q=it.qty?(/^\d+$/.test(String(it.qty).trim())?it.qty+"個":it.qty):""; const p=[it.name,it.size,q].filter(Boolean); if(p.length) s+=`<div class="rv-item">🛍️ ${esc2(p.join(" / "))}</div>`; });
+      s+=`</div>`;
+    });
+    (e.note||"").split("\n").forEach(l=>{ if(l.trim()) s+=`<div class="rv-line">📝 ${richInline(l)}</div>`; });
+  } else {
+    (e.text||"").split("\n").forEach(line=>{ if(!line.trim()) return; const ic=iconForText(line); const pre=(ic && !line.includes(ic))?ic+" ":""; s+=`<div class="rv-line">${pre}${richInline(line)}</div>`; });
+  }
+  return s;
+}
+function renderRich(data, work_date){
+  const header=(data&&data.header)||lcfg.header;
+  const footer=(data&&data.footer)!=null?data.footer:lcfg.footer;
+  let h="";
+  if(header && header.trim()) h+=`<div class="rv-head">${esc2(header)}</div>`;
+  h+=`<div class="rv-date">📅 ${esc2(work_date||"")}</div>`;
+  const blocks=(data&&data.blocks)||[];
+  const used=blocks.filter(blockHasContent);
+  if(!used.length) h+=`<div class="rv-line" style="color:#8a8a7a">${esc2(tr("noContent"))}</div>`;
+  used.forEach((e,k)=>{ h+=`<div class="rv-block"><span class="rv-num">${k+1}.0</span>${blockRich(e)}</div>`; });
+  if(footer && footer.trim()) h+=`<div class="rv-foot">${esc2(footer).replace(/\n/g,"<br>")}</div>`;
+  return h;
+}
 
 /* ---------- AUTH (email + password) ---------- */
 async function doLogin(){
   const email=q("email").value.trim().toLowerCase();
   const pw=q("pw").value;
   q("err1").classList.add("hidden");
-  if(!email || !email.includes("@") || !pw){ q("err1").textContent="メールとパスワードを入力してください。"; q("err1").classList.remove("hidden"); return; }
-  q("loginBtn").disabled=true; q("loginBtn").textContent="ログイン中…";
+  if(!email || !email.includes("@") || !pw){ q("err1").textContent=tr("eMailPw"); q("err1").classList.remove("hidden"); return; }
+  q("loginBtn").disabled=true; q("loginBtn").textContent=tr("loggingIn");
   // 1) 既存アカウントでログイン
   let { error }=await db.auth.signInWithPassword({ email, password:pw });
   if(error){
     // 2) 未作成なら作成を試みる
     const { data:sd, error:e2 }=await db.auth.signUp({ email, password:pw });
     if(e2){
-      q("loginBtn").disabled=false; q("loginBtn").textContent="ログイン";
-      if(/already|registered|exists/i.test(e2.message)) q("err1").textContent="パスワードが違います。";
-      else if(/rate/i.test(e2.message)) q("err1").textContent="少し待ってから再度お試しください。";
-      else if(/least|password/i.test(e2.message)) q("err1").textContent="パスワードは6文字以上にしてください。";
+      q("loginBtn").disabled=false; q("loginBtn").textContent=tr("login");
+      if(/already|registered|exists/i.test(e2.message)) q("err1").textContent=tr("eWrongPw");
+      else if(/rate/i.test(e2.message)) q("err1").textContent=tr("eRate");
+      else if(/least|password/i.test(e2.message)) q("err1").textContent=tr("ePwLen");
       else q("err1").textContent=e2.message;
       q("err1").classList.remove("hidden"); return;
     }
     if(!sd || !sd.session){
-      q("loginBtn").disabled=false; q("loginBtn").textContent="ログイン";
-      q("err1").textContent="設定が必要です：Supabase で「Confirm email」をオフにしてください。";
+      q("loginBtn").disabled=false; q("loginBtn").textContent=tr("login");
+      q("err1").textContent=tr("eConfirm");
       q("err1").classList.remove("hidden"); return;
     }
   }
-  q("loginBtn").disabled=false; q("loginBtn").textContent="ログイン";
+  q("loginBtn").disabled=false; q("loginBtn").textContent=tr("login");
   route();
 }
 q("loginBtn").onclick=doLogin;
@@ -324,26 +474,35 @@ async function route(){
 
 /* ---------- STAFF ---------- */
 async function initStaff(me){
-  q("staffHello").textContent=(me.nickname||me.name||"")+" さんの本日の作業";
-  q("staffDate").textContent=todayStr();
+  window._me=me;
   await loadStaffToday();
   q("reloadS").onclick=loadStaffToday;
+  applyLang();
+}
+function renderStaffMsg(){
+  const me=window._me||{}; const a=window._staffData;
+  q("staffHello").textContent=trf("todayFor",{name:(me.nickname||me.name||"")});
+  q("staffDate").textContent=todayStr();
+  if(a===undefined) return;
+  if(a===null){ q("staffMsg").textContent=tr("noToday"); return; }
+  if(a.error){ q("staffMsg").textContent=tr("loadErr")+a.error; return; }
+  q("staffMsg").innerHTML=renderRich(a.data, a.work_date);
 }
 async function loadStaffToday(){
-  q("staffMsg").textContent="読み込み中…";
-  // RLS: 従業員は「自分・本日」のみ取得できる
+  q("staffMsg").textContent=tr("loading");
   const { data, error }=await db.from("assignments").select("*").order("work_date",{ascending:false}).limit(1);
-  if(error){ q("staffMsg").textContent="読み込みエラー: "+error.message; return; }
-  if(!data || !data.length){ q("staffMsg").textContent="本日の作業はまだ登録されていません。"; return; }
-  const a=data[0];
-  q("staffMsg").innerHTML=linkify(buildMsg(a.data, a.work_date));
+  if(error){ window._staffData={error:error.message}; renderStaffMsg(); return; }
+  window._staffData=(data&&data.length)?data[0]:null;
+  renderStaffMsg();
 }
 
 /* ---------- ADMIN ---------- */
 let entries=[], curStaff="", roster=[];
 function seedEntries(){ entries=[{type:"text",text:""},{type:"text",text:""},{type:"text",text:""}]; }
 
+let adminInited=false;
 async function initAdmin(){
+  if(adminInited) return; adminInited=true;
   // tabs
   document.querySelectorAll(".tab").forEach(t=>{
     t.onclick=()=>{
@@ -367,11 +526,12 @@ async function initAdmin(){
   q("cfgHeader").oninput=()=>{ lcfg.header=q("cfgHeader").value; saveLocal(lcfg); renderPreview(); };
   q("cfgFooter").oninput=()=>{ lcfg.footer=q("cfgFooter").value; saveLocal(lcfg); renderPreview(); };
   q("cfgPool").oninput=()=>{ lcfg.pool=q("cfgPool").value.split(",").map(s=>s.trim()).filter(Boolean); saveLocal(lcfg); renderEntries(); };
+  applyLang();
 }
 
 function fillStaffSelect(){
   const sel=q("mStaff"); sel.innerHTML="";
-  if(!roster.length){ const o=document.createElement("option"); o.value=""; o.textContent="（メンバー未登録）"; sel.appendChild(o); }
+  if(!roster.length){ const o=document.createElement("option"); o.value=""; o.textContent=tr("noMember"); sel.appendChild(o); }
   roster.forEach(r=>{ const o=document.createElement("option"); o.value=r.email; o.textContent=(r.nickname||r.name||r.email); sel.appendChild(o); });
   curStaff=sel.value;
 }
@@ -389,7 +549,8 @@ async function loadForSelection(){
 function mLabel(t){ const d=document.createElement("div"); d.className="mini-l"; d.textContent=t; return d; }
 function mText(val,ph,on){ const i=document.createElement("input"); i.type="text"; i.value=val||""; i.placeholder=ph||""; i.oninput=()=>{ on(i.value); renderPreview(); }; return i; }
 function mArea(val,ph,on){ const a=document.createElement("textarea"); a.rows=2; a.value=val||""; a.placeholder=ph||""; a.oninput=()=>{ on(a.value); renderPreview(); }; return a; }
-function mSelect(val,opts,on){ const s=document.createElement("select"); opts.forEach(o=>{ const op=document.createElement("option"); op.value=o; op.textContent=o||"（選択）"; if((val||"")===o)op.selected=true; s.appendChild(op); }); s.onchange=()=>{ on(s.value); renderPreview(); }; return s; }
+function mSelect(val,opts,on){ const s=document.createElement("select"); opts.forEach(o=>{ const op=document.createElement("option"); op.value=o; op.textContent=o||"—"; if((val||"")===o)op.selected=true; s.appendChild(op); }); s.onchange=()=>{ on(s.value); renderPreview(); }; return s; }
+function mSelC(val,pairs,on){ const s=document.createElement("select"); pairs.forEach(([v,k])=>{ const op=document.createElement("option"); op.value=v; op.textContent=v?tr(k):"—"; if((val||"")===v)op.selected=true; s.appendChild(op); }); s.onchange=()=>{ on(s.value); renderPreview(); }; return s; }
 
 function convertBlock(e,t){
   const cur=e.type||"text"; if(cur===t) return e;
@@ -399,7 +560,7 @@ function convertBlock(e,t){
 }
 function textEditor(e){
   const w=document.createElement("div");
-  const ta=document.createElement("textarea"); ta.value=e.text||""; ta.placeholder="作業内容（自由入力・→ 可）";
+  const ta=document.createElement("textarea"); ta.value=e.text||""; ta.placeholder=tr("phWork");
   ta.oninput=()=>{ e.text=ta.value; renderPreview(); }; w.appendChild(ta);
   const pool=document.createElement("div"); pool.className="pool";
   lcfg.pool.forEach(tok=>{ const b=document.createElement("button"); b.textContent=tok; b.onclick=()=>{ let v=ta.value; if(v&&!v.endsWith("\n")) v+="→"; v+=tok; ta.value=v; e.text=v; ta.focus(); renderPreview(); }; pool.appendChild(b); });
@@ -407,51 +568,51 @@ function textEditor(e){
 }
 function transportEditor(e){
   const w=document.createElement("div");
-  w.append(mLabel("件名（任意）"), mText(e.title,"例：石材の搬運", v=>e.title=v));
-  w.append(mLabel("出発地"), mText(e.from,"住所・場所名", v=>e.from=v));
-  w.append(mLabel("↳ Google Map URL"), mText(e.fromUrl,"https://maps.app...", v=>e.fromUrl=v));
-  w.append(mLabel("到着地"), mText(e.to,"", v=>e.to=v));
-  w.append(mLabel("↳ Google Map URL"), mText(e.toUrl,"https://maps.app...", v=>e.toUrl=v));
-  w.append(mLabel("保管場所 (storage)"), mText(e.storage,"", v=>e.storage=v));
-  w.append(mLabel("↳ Google Map URL"), mText(e.storageUrl,"https://maps.app...", v=>e.storageUrl=v));
-  w.append(mLabel("手段"), mSelect(e.method,["","自転車","トラック","他スタッフ協力","その他"], v=>e.method=v));
-  w.append(mLabel("メモ"), mArea(e.note,"", v=>e.note=v));
+  w.append(mLabel(tr("subject")), mText(e.title,"", v=>e.title=v));
+  w.append(mLabel(tr("from")), mText(e.from,"", v=>e.from=v));
+  w.append(mLabel(tr("gmapUrl")), mText(e.fromUrl,"https://maps.app...", v=>e.fromUrl=v));
+  w.append(mLabel(tr("to")), mText(e.to,"", v=>e.to=v));
+  w.append(mLabel(tr("gmapUrl")), mText(e.toUrl,"https://maps.app...", v=>e.toUrl=v));
+  w.append(mLabel(tr("storage")), mText(e.storage,"", v=>e.storage=v));
+  w.append(mLabel(tr("gmapUrl")), mText(e.storageUrl,"https://maps.app...", v=>e.storageUrl=v));
+  w.append(mLabel(tr("method")), mSelC(e.method,[["",""],["bike","tMBike"],["truck","tMTruck"],["coop","tMCoop"],["other","tMOther"]], v=>e.method=v));
+  w.append(mLabel(tr("note")), mArea(e.note,"", v=>e.note=v));
   return w;
 }
 function shoppingEditor(e){
   const w=document.createElement("div");
-  w.append(mLabel("件名（任意）"), mText(e.title,"例：資材の買い出し", v=>e.title=v));
-  w.append(mLabel("出発地"), mText(e.from,"", v=>e.from=v));
-  w.append(mLabel("↳ Google Map URL"), mText(e.fromUrl,"https://maps.app...", v=>e.fromUrl=v));
-  w.append(mLabel("車の場所"), mText(e.carLocation,"", v=>e.carLocation=v));
-  w.append(mLabel("車種"), mSelect(e.vehicle,["","トラック","自家用車","その他"], v=>e.vehicle=v));
-  w.append(mLabel("給油"), mSelect(e.refuel,["","不要","給油する","要確認"], v=>e.refuel=v));
-  const dh=document.createElement("div"); dh.className="mini-l"; dh.style.marginTop="10px"; dh.textContent="目的地（順番に）"; w.appendChild(dh);
+  w.append(mLabel(tr("subject")), mText(e.title,"", v=>e.title=v));
+  w.append(mLabel(tr("from")), mText(e.from,"", v=>e.from=v));
+  w.append(mLabel(tr("gmapUrl")), mText(e.fromUrl,"https://maps.app...", v=>e.fromUrl=v));
+  w.append(mLabel(tr("carLoc")), mText(e.carLocation,"", v=>e.carLocation=v));
+  w.append(mLabel(tr("vehicle")), mSelC(e.vehicle,[["",""],["truck","tMTruck"],["car","tVCar"],["other","tMOther"]], v=>e.vehicle=v));
+  w.append(mLabel(tr("refuel")), mSelC(e.refuel,[["",""],["no","tRNo"],["yes","tRYes"],["check","tRCheck"]], v=>e.refuel=v));
+  const dh=document.createElement("div"); dh.className="mini-l"; dh.style.marginTop="10px"; dh.textContent=tr("dests"); w.appendChild(dh);
   e.stops.forEach((s,si)=>{
     const box=document.createElement("div"); box.className="stopbox";
     const top=document.createElement("div"); top.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:4px";
-    const t=document.createElement("b"); t.style.fontSize="13px"; t.textContent="第"+(si+1)+"順位";
+    const t=document.createElement("b"); t.style.fontSize="13px"; t.textContent=trf("destOrder",{n:si+1});
     const rm=document.createElement("button"); rm.className="minidel"; rm.textContent="×"; rm.style.marginLeft="auto";
     rm.onclick=()=>{ e.stops.splice(si,1); if(!e.stops.length) e.stops=normBlock({type:"shopping"}).stops; renderEntries(); renderPreview(); };
     top.append(t,rm); box.appendChild(top);
-    box.append(mLabel("目的地名"), mText(s.name,"店名・場所", v=>s.name=v));
-    box.append(mLabel("↳ Google Map URL"), mText(s.url,"https://maps.app...", v=>s.url=v));
-    box.appendChild(mLabel("購入品"));
+    box.append(mLabel(tr("destName")), mText(s.name,"", v=>s.name=v));
+    box.append(mLabel(tr("gmapUrl")), mText(s.url,"https://maps.app...", v=>s.url=v));
+    box.appendChild(mLabel(tr("items")));
     s.items.forEach((it,ii)=>{
       const row=document.createElement("div"); row.className="itemrow";
-      row.appendChild(mText(it.name,"品名", v=>it.name=v));
-      row.appendChild(mText(it.size,"サイズ", v=>it.size=v));
-      const qty=mText(it.qty,"数", v=>it.qty=v); qty.style.maxWidth="58px"; row.appendChild(qty);
+      row.appendChild(mText(it.name,tr("phItem"), v=>it.name=v));
+      row.appendChild(mText(it.size,tr("phSize"), v=>it.size=v));
+      const qty=mText(it.qty,tr("phQty"), v=>it.qty=v); qty.style.maxWidth="64px"; row.appendChild(qty);
       const d=document.createElement("button"); d.className="minidel"; d.textContent="×";
       d.onclick=()=>{ s.items.splice(ii,1); if(!s.items.length) s.items.push({name:"",size:"",qty:""}); renderEntries(); renderPreview(); };
       row.appendChild(d); box.appendChild(row);
     });
-    const ai=document.createElement("button"); ai.className="miniadd"; ai.textContent="＋ 品目"; ai.onclick=()=>{ s.items.push({name:"",size:"",qty:""}); renderEntries(); renderPreview(); };
+    const ai=document.createElement("button"); ai.className="miniadd"; ai.textContent=tr("addItem"); ai.onclick=()=>{ s.items.push({name:"",size:"",qty:""}); renderEntries(); renderPreview(); };
     box.appendChild(ai); w.appendChild(box);
   });
-  const as=document.createElement("button"); as.className="miniadd"; as.textContent="＋ 目的地"; as.onclick=()=>{ e.stops.push({name:"",url:"",items:[{name:"",size:"",qty:""}]}); renderEntries(); renderPreview(); };
+  const as=document.createElement("button"); as.className="miniadd"; as.textContent=tr("addDest"); as.onclick=()=>{ e.stops.push({name:"",url:"",items:[{name:"",size:"",qty:""}]}); renderEntries(); renderPreview(); };
   w.appendChild(as);
-  w.append(mLabel("メモ"), mArea(e.note,"", v=>e.note=v));
+  w.append(mLabel(tr("note")), mArea(e.note,"", v=>e.note=v));
   return w;
 }
 
@@ -463,7 +624,7 @@ function renderEntries(){
     const head=document.createElement("div"); head.className="ehead";
     const num=document.createElement("span"); num.className="enum"; num.textContent=(i+1)+".0";
     const typeSel=document.createElement("select"); typeSel.className="typesel";
-    [["text","テキスト"],["transport","🚚 搬運"],["shopping","🛒 買い出し"]].forEach(([v,t])=>{ const o=document.createElement("option"); o.value=v; o.textContent=t; if(e.type===v)o.selected=true; typeSel.appendChild(o); });
+    [["text","typeText"],["transport","typeTransport"],["shopping","typeShopping"]].forEach(([v,k])=>{ const o=document.createElement("option"); o.value=v; o.textContent=tr(k); if(e.type===v)o.selected=true; typeSel.appendChild(o); });
     typeSel.onchange=()=>{ entries[i]=convertBlock(e, typeSel.value); renderEntries(); renderPreview(); };
     const del=document.createElement("button"); del.className="edel"; del.textContent="×"; del.onclick=()=>{ entries.splice(i,1); renderEntries(); renderPreview(); };
     head.append(num, typeSel, del); card.appendChild(head);
@@ -475,7 +636,7 @@ function renderEntries(){
   });
 }
 function currentData(){ return { blocks:entries, header:lcfg.header, footer:lcfg.footer }; }
-function renderPreview(){ q("preview").textContent=buildMsg(currentData(), q("mDate").value); }
+function renderPreview(){ q("preview").innerHTML=renderRich(currentData(), q("mDate").value); }
 
 function wireAdminButtons(){
   q("addEntry").onclick=()=>{ entries.push({type:"text",text:""}); renderEntries(); renderPreview(); };
@@ -483,16 +644,16 @@ function wireAdminButtons(){
   q("copyBtn").onclick=async()=>{
     const text=buildMsg(currentData(), q("mDate").value);
     try{ await navigator.clipboard.writeText(text); }catch(e){ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
-    q("copyBtn").textContent="コピー済 ✓"; setTimeout(()=>q("copyBtn").textContent="LINE用コピー",1500);
+    q("copyBtn").textContent=tr("copied"); setTimeout(()=>q("copyBtn").textContent=tr("copyLine"),1500);
   };
   q("saveBtn").onclick=async()=>{
     q("saveOk").classList.add("hidden"); q("saveErr").classList.add("hidden");
-    if(!curStaff){ q("saveErr").textContent="担当者を選んでください（メンバー未登録なら『メンバー』で追加）。"; q("saveErr").classList.remove("hidden"); return; }
-    q("saveBtn").disabled=true; q("saveBtn").textContent="保存中…";
+    if(!curStaff){ q("saveErr").textContent=tr("pickStaff"); q("saveErr").classList.remove("hidden"); return; }
+    q("saveBtn").disabled=true; q("saveBtn").textContent=tr("saving");
     const payload={ work_date:q("mDate").value, staff_email:curStaff, data:currentData(), updated_at:new Date().toISOString() };
     const { error }=await db.from("assignments").upsert(payload, { onConflict:"work_date,staff_email" });
-    q("saveBtn").disabled=false; q("saveBtn").textContent="クラウドに保存";
-    if(error){ q("saveErr").textContent="保存エラー: "+error.message; q("saveErr").classList.remove("hidden"); }
+    q("saveBtn").disabled=false; q("saveBtn").textContent=tr("save");
+    if(error){ q("saveErr").textContent=tr("saveErr")+error.message; q("saveErr").classList.remove("hidden"); }
     else { q("saveBtn").classList.add("done"); q("saveOk").classList.remove("hidden"); setTimeout(()=>q("saveBtn").classList.remove("done"),1200); }
   };
   q("hLoad").onclick=loadHistory;
@@ -507,13 +668,13 @@ async function loadRoster(){
 }
 function renderRoster(){
   const host=q("rosterList"); if(!host) return; host.innerHTML="";
-  if(!roster.length){ host.textContent="まだ登録がありません。"; return; }
+  if(!roster.length){ host.textContent=tr("memEmpty"); return; }
   roster.forEach(r=>{
     const row=document.createElement("div"); row.className="mrow";
     const info=document.createElement("div"); info.style.flex="1";
     info.innerHTML=`<b>${r.nickname||r.name||"(名前なし)"}</b> <span class="hint">${r.email}${r.active?"":" · 停止中"}</span>`;
     const del=document.createElement("button"); del.className="del"; del.textContent="×"; del.title="削除";
-    del.onclick=async()=>{ if(!confirm(r.email+" を削除しますか？")) return; await db.from("staff_roster").delete().eq("email", r.email); loadRoster(); };
+    del.onclick=async()=>{ if(!confirm(trf("delConfirm",{email:r.email}))) return; await db.from("staff_roster").delete().eq("email", r.email); loadRoster(); };
     row.append(info, del); host.appendChild(row);
   });
 }
@@ -521,30 +682,33 @@ async function addMember(){
   q("memErr").classList.add("hidden");
   const email=q("newEmail").value.trim().toLowerCase();
   const name=q("newName").value.trim(), nick=q("newNick").value.trim();
-  if(!email||!email.includes("@")){ q("memErr").textContent="メールを入力してください。"; q("memErr").classList.remove("hidden"); return; }
+  if(!email||!email.includes("@")){ q("memErr").textContent=tr("memErrMail"); q("memErr").classList.remove("hidden"); return; }
   const { error }=await db.from("staff_roster").upsert({ email, name, nickname:nick, active:true }, { onConflict:"email" });
-  if(error){ q("memErr").textContent="エラー: "+error.message; q("memErr").classList.remove("hidden"); return; }
+  if(error){ q("memErr").textContent=tr("memErr")+error.message; q("memErr").classList.remove("hidden"); return; }
   q("newEmail").value=""; q("newName").value=""; q("newNick").value="";
   loadRoster();
 }
 
 async function loadHistory(){
-  const d=q("hDate").value; const host=q("histList"); host.innerHTML='<div class="spin">読み込み中…</div>';
+  const d=q("hDate").value; const host=q("histList"); host.innerHTML='<div class="spin">'+tr("loading")+'</div>';
   const { data, error }=await db.from("assignments").select("*").eq("work_date", d).order("staff_email");
   if(error){ host.innerHTML='<div class="err">'+error.message+'</div>'; return; }
-  if(!data||!data.length){ host.innerHTML='<div class="card">この日の記録はありません。</div>'; return; }
+  if(!data||!data.length){ host.innerHTML='<div class="card">'+tr("histNone")+'</div>'; return; }
   host.innerHTML="";
   const nameOf=e=>{ const r=roster.find(x=>x.email===e); return r?(r.nickname||r.name||e):e; };
   data.forEach(a=>{
     const it=document.createElement("div"); it.className="histitem";
     it.innerHTML=`<h4>${nameOf(a.staff_email)} <span class="hint">${a.staff_email}</span></h4>`;
-    const m=document.createElement("div"); m.className="msg"; m.innerHTML=linkify(buildMsg(a.data, a.work_date));
+    const m=document.createElement("div"); m.className="msg"; m.innerHTML=renderRich(a.data, a.work_date);
     it.appendChild(m); host.appendChild(it);
   });
 }
 
 /* ---------- BOOT ---------- */
-db.auth.onAuthStateChange((event, session)=>{ if(event==="SIGNED_IN" && session) route(); });
+q("langSel").value=lang;
+q("langSel").onchange=()=>{ lang=q("langSel").value; localStorage.setItem("teamdcl_lang",lang); applyLang(); };
+applyLang();
+db.auth.onAuthStateChange((event, session)=>{ if(event==="SIGNED_OUT"){ location.reload(); } });
 route();
 </script>
 </body>
