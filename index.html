@@ -58,6 +58,13 @@
   .pool{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
   .pool button{font-size:12px; border:1px dashed var(--line); background:#fff; color:var(--ink); padding:5px 9px; border-radius:999px; cursor:pointer}
   .pool button:hover{background:var(--amber-soft); border-color:var(--amber); border-style:solid}
+  .ehead .typesel{margin-left:6px; font-size:13px; padding:5px 22px 5px 8px; border-radius:8px; width:auto}
+  .mini-l{font-size:11.5px; color:var(--muted); margin:8px 0 3px}
+  .stopbox{border:1px dashed var(--line); border-radius:10px; padding:8px 10px; margin:6px 0; background:#fff}
+  .itemrow{display:flex; gap:6px; margin-bottom:6px}
+  .itemrow input{flex:1; min-width:0}
+  .miniadd{font-size:12px; color:var(--amber); background:var(--amber-soft); border:none; border-radius:8px; padding:6px 10px; cursor:pointer; margin-top:2px}
+  .minidel{border:none; background:var(--slate-soft); color:var(--slate); width:28px; height:28px; border-radius:8px; cursor:pointer; flex:none}
   .add{font-size:13px; color:var(--amber); background:var(--amber-soft); border:none; border-radius:9px; padding:8px 12px; cursor:pointer}
   .mrow{display:flex; gap:8px; align-items:center; margin-bottom:8px}
   .mrow .del{border:none; background:var(--slate-soft); color:var(--slate); width:30px; height:30px; border-radius:8px; cursor:pointer; flex:none}
@@ -210,6 +217,41 @@ const show=(id)=>{ ["authScreen","unauthScreen","staffScreen","adminScreen"].for
 function todayStr(){ const t=new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
 function fmtDate(s){ return (s||"").replaceAll("-",""); }
 
+function urlSuffix(u){ return (u&&String(u).trim())?(" "+String(u).trim()):""; }
+function pushLines(L,s){ (s||"").split("\n").forEach(l=>{ if(l.trim()) L.push(l); }); }
+function blockHasContent(e){
+  const t=(e&&e.type)||"text";
+  if(t==="transport") return !!(e.title||e.from||e.to||e.storage||e.method||e.note);
+  if(t==="shopping")  return !!(e.title||e.from||e.carLocation||e.vehicle||e.refuel||(e.stops||[]).some(s=>s.name||(s.items||[]).some(it=>it.name||it.size||it.qty))||e.note);
+  return !!(e && e.text && e.text.trim());
+}
+function blockBody(e){
+  const t=(e&&e.type)||"text"; const L=[];
+  if(t==="transport"){
+    L.push("🚚 "+((e.title&&e.title.trim())||"搬運タスク"));
+    if(e.from) L.push("出発: "+e.from+urlSuffix(e.fromUrl));
+    if(e.to) L.push("到着: "+e.to+urlSuffix(e.toUrl));
+    if(e.storage) L.push("保管: "+e.storage+urlSuffix(e.storageUrl));
+    if(e.method) L.push("手段: "+e.method);
+    pushLines(L, e.note);
+  } else if(t==="shopping"){
+    L.push("🛒 買い出し"+((e.title&&e.title.trim())?(" "+e.title.trim()):""));
+    if(e.from) L.push("出発: "+e.from+urlSuffix(e.fromUrl));
+    if(e.carLocation) L.push("車の場所: "+e.carLocation);
+    if(e.vehicle) L.push("車種: "+e.vehicle);
+    if(e.refuel) L.push("給油: "+e.refuel);
+    (e.stops||[]).forEach((s,si)=>{
+      if(!(s.name||(s.items||[]).some(it=>it.name||it.size||it.qty))) return;
+      const c="①②③④⑤⑥⑦⑧⑨"[si]||((si+1)+".");
+      L.push(c+(s.name||"")+urlSuffix(s.url));
+      (s.items||[]).forEach(it=>{ const q=it.qty?(/^\d+$/.test(String(it.qty).trim())?it.qty+"個":it.qty):""; const p=[it.name,it.size,q].filter(Boolean); if(p.length) L.push("　・"+p.join(" / ")); });
+    });
+    pushLines(L, e.note);
+  } else {
+    pushLines(L, e.text);
+  }
+  return L;
+}
 function buildMsg(data, work_date){
   const L=[];
   const header=(data&&data.header)||lcfg.header;
@@ -217,14 +259,22 @@ function buildMsg(data, work_date){
   if(header && header.trim()) L.push(header);
   L.push(fmtDate(work_date));
   const blocks=(data&&data.blocks)||[];
-  const used=blocks.filter(b=>b.text&&b.text.trim());
-  used.forEach((b,k)=>{
-    L.push(`${k+1}.0`);
-    b.text.split("\n").forEach(l=>{ if(l.trim()) L.push(l); });
-    L.push("");
-  });
+  const used=blocks.filter(blockHasContent);
+  used.forEach((e,k)=>{ L.push(`${k+1}.0`); blockBody(e).forEach(l=>L.push(l)); L.push(""); });
   (footer||"").split("\n").forEach(l=>L.push(l));
   return L.join("\n");
+}
+function linkify(text){
+  const esc=String(text).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  return esc.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:#2a6dc9;word-break:break-all">$1</a>');
+}
+function normBlock(b){
+  b=b||{}; const t=b.type||"text";
+  if(t==="transport") return {type:"transport", title:b.title||"", from:b.from||"", fromUrl:b.fromUrl||"", to:b.to||"", toUrl:b.toUrl||"", storage:b.storage||"", storageUrl:b.storageUrl||"", method:b.method||"", note:b.note||""};
+  if(t==="shopping") return {type:"shopping", title:b.title||"", from:b.from||"", fromUrl:b.fromUrl||"", carLocation:b.carLocation||"", vehicle:b.vehicle||"", refuel:b.refuel||"",
+    stops:((b.stops&&b.stops.length)?b.stops:[{}]).map(s=>({ name:(s&&s.name)||"", url:(s&&s.url)||"", items:((s&&s.items&&s.items.length)?s.items:[{}]).map(it=>({ name:(it&&it.name)||"", size:(it&&it.size)||"", qty:(it&&it.qty)||"" })) })),
+    note:b.note||""};
+  return {type:"text", text:b.text||""};
 }
 
 /* ---------- AUTH (email + password) ---------- */
@@ -286,12 +336,12 @@ async function loadStaffToday(){
   if(error){ q("staffMsg").textContent="読み込みエラー: "+error.message; return; }
   if(!data || !data.length){ q("staffMsg").textContent="本日の作業はまだ登録されていません。"; return; }
   const a=data[0];
-  q("staffMsg").textContent=buildMsg(a.data, a.work_date);
+  q("staffMsg").innerHTML=linkify(buildMsg(a.data, a.work_date));
 }
 
 /* ---------- ADMIN ---------- */
 let entries=[], curStaff="", roster=[];
-function seedEntries(){ entries=[{text:""},{text:""},{text:""}]; }
+function seedEntries(){ entries=[{type:"text",text:""},{type:"text",text:""},{type:"text",text:""}]; }
 
 async function initAdmin(){
   // tabs
@@ -331,33 +381,104 @@ async function loadForSelection(){
   const d=q("mDate").value;
   if(!curStaff){ seedEntries(); renderEntries(); renderPreview(); return; }
   const { data }=await db.from("assignments").select("*").eq("work_date", d).eq("staff_email", curStaff).maybeSingle();
-  if(data && data.data && Array.isArray(data.data.blocks) && data.data.blocks.length){ entries=data.data.blocks.map(b=>({text:b.text||""})); }
+  if(data && data.data && Array.isArray(data.data.blocks) && data.data.blocks.length){ entries=data.data.blocks.map(normBlock); }
   else seedEntries();
   renderEntries(); renderPreview();
+}
+
+function mLabel(t){ const d=document.createElement("div"); d.className="mini-l"; d.textContent=t; return d; }
+function mText(val,ph,on){ const i=document.createElement("input"); i.type="text"; i.value=val||""; i.placeholder=ph||""; i.oninput=()=>{ on(i.value); renderPreview(); }; return i; }
+function mArea(val,ph,on){ const a=document.createElement("textarea"); a.rows=2; a.value=val||""; a.placeholder=ph||""; a.oninput=()=>{ on(a.value); renderPreview(); }; return a; }
+function mSelect(val,opts,on){ const s=document.createElement("select"); opts.forEach(o=>{ const op=document.createElement("option"); op.value=o; op.textContent=o||"（選択）"; if((val||"")===o)op.selected=true; s.appendChild(op); }); s.onchange=()=>{ on(s.value); renderPreview(); }; return s; }
+
+function convertBlock(e,t){
+  const cur=e.type||"text"; if(cur===t) return e;
+  const nb=normBlock({type:t});
+  if(cur==="text" && e.text && e.text.trim() && t!=="text") nb.note=e.text;
+  return nb;
+}
+function textEditor(e){
+  const w=document.createElement("div");
+  const ta=document.createElement("textarea"); ta.value=e.text||""; ta.placeholder="作業内容（自由入力・→ 可）";
+  ta.oninput=()=>{ e.text=ta.value; renderPreview(); }; w.appendChild(ta);
+  const pool=document.createElement("div"); pool.className="pool";
+  lcfg.pool.forEach(tok=>{ const b=document.createElement("button"); b.textContent=tok; b.onclick=()=>{ let v=ta.value; if(v&&!v.endsWith("\n")) v+="→"; v+=tok; ta.value=v; e.text=v; ta.focus(); renderPreview(); }; pool.appendChild(b); });
+  w.appendChild(pool); return w;
+}
+function transportEditor(e){
+  const w=document.createElement("div");
+  w.append(mLabel("件名（任意）"), mText(e.title,"例：石材の搬運", v=>e.title=v));
+  w.append(mLabel("出発地"), mText(e.from,"住所・場所名", v=>e.from=v));
+  w.append(mLabel("↳ Google Map URL"), mText(e.fromUrl,"https://maps.app...", v=>e.fromUrl=v));
+  w.append(mLabel("到着地"), mText(e.to,"", v=>e.to=v));
+  w.append(mLabel("↳ Google Map URL"), mText(e.toUrl,"https://maps.app...", v=>e.toUrl=v));
+  w.append(mLabel("保管場所 (storage)"), mText(e.storage,"", v=>e.storage=v));
+  w.append(mLabel("↳ Google Map URL"), mText(e.storageUrl,"https://maps.app...", v=>e.storageUrl=v));
+  w.append(mLabel("手段"), mSelect(e.method,["","自転車","トラック","他スタッフ協力","その他"], v=>e.method=v));
+  w.append(mLabel("メモ"), mArea(e.note,"", v=>e.note=v));
+  return w;
+}
+function shoppingEditor(e){
+  const w=document.createElement("div");
+  w.append(mLabel("件名（任意）"), mText(e.title,"例：資材の買い出し", v=>e.title=v));
+  w.append(mLabel("出発地"), mText(e.from,"", v=>e.from=v));
+  w.append(mLabel("↳ Google Map URL"), mText(e.fromUrl,"https://maps.app...", v=>e.fromUrl=v));
+  w.append(mLabel("車の場所"), mText(e.carLocation,"", v=>e.carLocation=v));
+  w.append(mLabel("車種"), mSelect(e.vehicle,["","トラック","自家用車","その他"], v=>e.vehicle=v));
+  w.append(mLabel("給油"), mSelect(e.refuel,["","不要","給油する","要確認"], v=>e.refuel=v));
+  const dh=document.createElement("div"); dh.className="mini-l"; dh.style.marginTop="10px"; dh.textContent="目的地（順番に）"; w.appendChild(dh);
+  e.stops.forEach((s,si)=>{
+    const box=document.createElement("div"); box.className="stopbox";
+    const top=document.createElement("div"); top.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:4px";
+    const t=document.createElement("b"); t.style.fontSize="13px"; t.textContent="第"+(si+1)+"順位";
+    const rm=document.createElement("button"); rm.className="minidel"; rm.textContent="×"; rm.style.marginLeft="auto";
+    rm.onclick=()=>{ e.stops.splice(si,1); if(!e.stops.length) e.stops=normBlock({type:"shopping"}).stops; renderEntries(); renderPreview(); };
+    top.append(t,rm); box.appendChild(top);
+    box.append(mLabel("目的地名"), mText(s.name,"店名・場所", v=>s.name=v));
+    box.append(mLabel("↳ Google Map URL"), mText(s.url,"https://maps.app...", v=>s.url=v));
+    box.appendChild(mLabel("購入品"));
+    s.items.forEach((it,ii)=>{
+      const row=document.createElement("div"); row.className="itemrow";
+      row.appendChild(mText(it.name,"品名", v=>it.name=v));
+      row.appendChild(mText(it.size,"サイズ", v=>it.size=v));
+      const qty=mText(it.qty,"数", v=>it.qty=v); qty.style.maxWidth="58px"; row.appendChild(qty);
+      const d=document.createElement("button"); d.className="minidel"; d.textContent="×";
+      d.onclick=()=>{ s.items.splice(ii,1); if(!s.items.length) s.items.push({name:"",size:"",qty:""}); renderEntries(); renderPreview(); };
+      row.appendChild(d); box.appendChild(row);
+    });
+    const ai=document.createElement("button"); ai.className="miniadd"; ai.textContent="＋ 品目"; ai.onclick=()=>{ s.items.push({name:"",size:"",qty:""}); renderEntries(); renderPreview(); };
+    box.appendChild(ai); w.appendChild(box);
+  });
+  const as=document.createElement("button"); as.className="miniadd"; as.textContent="＋ 目的地"; as.onclick=()=>{ e.stops.push({name:"",url:"",items:[{name:"",size:"",qty:""}]}); renderEntries(); renderPreview(); };
+  w.appendChild(as);
+  w.append(mLabel("メモ"), mArea(e.note,"", v=>e.note=v));
+  return w;
 }
 
 function renderEntries(){
   const host=q("entries"); host.innerHTML="";
   entries.forEach((e,i)=>{
+    if(!e.type) e.type="text";
     const card=document.createElement("div"); card.className="entry";
     const head=document.createElement("div"); head.className="ehead";
     const num=document.createElement("span"); num.className="enum"; num.textContent=(i+1)+".0";
+    const typeSel=document.createElement("select"); typeSel.className="typesel";
+    [["text","テキスト"],["transport","🚚 搬運"],["shopping","🛒 買い出し"]].forEach(([v,t])=>{ const o=document.createElement("option"); o.value=v; o.textContent=t; if(e.type===v)o.selected=true; typeSel.appendChild(o); });
+    typeSel.onchange=()=>{ entries[i]=convertBlock(e, typeSel.value); renderEntries(); renderPreview(); };
     const del=document.createElement("button"); del.className="edel"; del.textContent="×"; del.onclick=()=>{ entries.splice(i,1); renderEntries(); renderPreview(); };
-    head.append(num,del); card.appendChild(head);
-    const ta=document.createElement("textarea"); ta.value=e.text||""; ta.placeholder="作業内容（自由入力・→ 可）";
-    ta.oninput=()=>{ e.text=ta.value; renderPreview(); };
-    card.appendChild(ta);
-    const pool=document.createElement("div"); pool.className="pool";
-    lcfg.pool.forEach(tok=>{ const b=document.createElement("button"); b.textContent=tok; b.onclick=()=>{ let v=ta.value; if(v&&!v.endsWith("\n")) v+="→"; v+=tok; ta.value=v; e.text=v; ta.focus(); renderPreview(); }; pool.appendChild(b); });
-    card.appendChild(pool);
-    host.appendChild(card);
+    head.append(num, typeSel, del); card.appendChild(head);
+    const body=document.createElement("div");
+    if(e.type==="transport") body.appendChild(transportEditor(e));
+    else if(e.type==="shopping") body.appendChild(shoppingEditor(e));
+    else body.appendChild(textEditor(e));
+    card.appendChild(body); host.appendChild(card);
   });
 }
 function currentData(){ return { blocks:entries, header:lcfg.header, footer:lcfg.footer }; }
 function renderPreview(){ q("preview").textContent=buildMsg(currentData(), q("mDate").value); }
 
 function wireAdminButtons(){
-  q("addEntry").onclick=()=>{ entries.push({text:""}); renderEntries(); renderPreview(); };
+  q("addEntry").onclick=()=>{ entries.push({type:"text",text:""}); renderEntries(); renderPreview(); };
   q("clearBtn").onclick=()=>{ seedEntries(); renderEntries(); renderPreview(); };
   q("copyBtn").onclick=async()=>{
     const text=buildMsg(currentData(), q("mDate").value);
@@ -417,7 +538,7 @@ async function loadHistory(){
   data.forEach(a=>{
     const it=document.createElement("div"); it.className="histitem";
     it.innerHTML=`<h4>${nameOf(a.staff_email)} <span class="hint">${a.staff_email}</span></h4>`;
-    const m=document.createElement("div"); m.className="msg"; m.textContent=buildMsg(a.data, a.work_date);
+    const m=document.createElement("div"); m.className="msg"; m.innerHTML=linkify(buildMsg(a.data, a.work_date));
     it.appendChild(m); host.appendChild(it);
   });
 }
