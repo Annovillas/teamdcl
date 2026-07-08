@@ -162,6 +162,7 @@
           <button class="btn" id="saveBtn" style="flex:1" data-i18n="save">クラウドに保存</button>
           <button class="btn-ghost btn" id="copyBtn" data-i18n="copyLine">LINE用コピー</button>
           <button class="btn-ghost btn" id="clearBtn" data-i18n="clear">クリア</button>
+          <button class="btn-ghost btn hidden" id="deleteBtn" data-i18n="delTask" style="border-color:#e0c6c6;color:#a05050">削除</button>
         </div>
         <div class="ok hidden" id="saveOk" data-i18n="saveOk">保存しました ✓（担当者が今日ログインすると見えます）</div>
         <div class="err hidden" id="saveErr"></div>
@@ -289,6 +290,9 @@ const T={
   transportTask:"搬運任務", shoppingTitle:"採購", noContent:"（無作業內容）", mapBtn:"🗺️ 地圖", phEmail:"staff@gmail.com" }
 };
 let lang=localStorage.getItem("teamdcl_lang")||"en"; if(!T[lang]) lang="en";
+Object.assign(T.en,{delTask:"Delete",delConfirm2:"Delete this staff's assignment for this day?",deleted:"Deleted ✓"});
+Object.assign(T.ja,{delTask:"削除",delConfirm2:"この日のこの担当者の作業を削除しますか？",deleted:"削除しました ✓"});
+Object.assign(T.zh,{delTask:"刪除",delConfirm2:"確定刪除這一天這位擔當者的作業？",deleted:"已刪除 ✓"});
 function tr(k){ return (T[lang]&&T[lang][k]!=null)?T[lang][k]:(T.en[k]!=null?T.en[k]:k); }
 function trf(k,map){ let s=tr(k); for(const key in map) s=s.split("{"+key+"}").join(map[key]); return s; }
 const CODEMAP={bike:"tMBike",truck:"tMTruck",coop:"tMCoop",other:"tMOther",car:"tVCar",no:"tRNo",yes:"tRYes",check:"tRCheck"};
@@ -543,10 +547,12 @@ function fillStaffSelect(){
 async function loadForSelection(){
   curStaff=q("mStaff").value;
   const d=q("mDate").value;
-  if(!curStaff){ seedEntries(); renderEntries(); renderPreview(); return; }
+  const delBtn=q("deleteBtn");
+  if(!curStaff){ seedEntries(); renderEntries(); renderPreview(); if(delBtn) delBtn.classList.add("hidden"); return; }
   const { data }=await db.from("assignments").select("*").eq("work_date", d).eq("staff_email", curStaff).maybeSingle();
   if(data && data.data && Array.isArray(data.data.blocks) && data.data.blocks.length){ entries=data.data.blocks.map(normBlock); }
   else seedEntries();
+  if(delBtn) delBtn.classList.toggle("hidden", !data);   // 既存レコードがある時だけ削除ボタン
   renderEntries(); renderPreview();
 }
 
@@ -645,6 +651,17 @@ function renderPreview(){ q("preview").innerHTML=renderRich(currentData(), q("mD
 function wireAdminButtons(){
   q("addEntry").onclick=()=>{ entries.push({type:"text",text:""}); renderEntries(); renderPreview(); };
   q("clearBtn").onclick=()=>{ seedEntries(); renderEntries(); renderPreview(); };
+  q("deleteBtn").onclick=async()=>{
+    if(!curStaff) return;
+    if(!confirm(tr("delConfirm2"))) return;
+    q("saveErr").classList.add("hidden");
+    const { error }=await db.from("assignments").delete().eq("work_date", q("mDate").value).eq("staff_email", curStaff);
+    if(error){ q("saveErr").textContent=tr("saveErr")+error.message; q("saveErr").classList.remove("hidden"); return; }
+    seedEntries(); renderEntries(); renderPreview();
+    q("deleteBtn").classList.add("hidden");
+    q("saveOk").textContent=tr("deleted"); q("saveOk").classList.remove("hidden");
+    setTimeout(()=>{ q("saveOk").classList.add("hidden"); q("saveOk").textContent=tr("saveOk"); }, 1800);
+  };
   q("copyBtn").onclick=async()=>{
     const text=buildMsg(currentData(), q("mDate").value);
     try{ await navigator.clipboard.writeText(text); }catch(e){ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
@@ -658,7 +675,7 @@ function wireAdminButtons(){
     const { error }=await db.from("assignments").upsert(payload, { onConflict:"work_date,staff_email" });
     q("saveBtn").disabled=false; q("saveBtn").textContent=tr("save");
     if(error){ q("saveErr").textContent=tr("saveErr")+error.message; q("saveErr").classList.remove("hidden"); }
-    else { q("saveBtn").classList.add("done"); q("saveOk").classList.remove("hidden"); setTimeout(()=>q("saveBtn").classList.remove("done"),1200); }
+    else { q("saveBtn").classList.add("done"); q("saveOk").classList.remove("hidden"); q("deleteBtn").classList.remove("hidden"); setTimeout(()=>q("saveBtn").classList.remove("done"),1200); }
   };
   q("hLoad").onclick=loadHistory;
   q("addMem").onclick=addMember;
