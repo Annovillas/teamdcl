@@ -236,13 +236,13 @@ const fmt = m => { m = Math.round(m); const h = Math.floor(m / 60), mm = ((m % 6
 const norm = s => String(s || '').toLowerCase().replace(/[\s_\-・]/g, '');
 
 const DEFAULT_SETTINGS = {
-  version: 8,
+  version: 9,
   areas: [
-    { id: 'sankando', name: 'Sankando' },
-    { id: 'defg', name: 'DEFG' },
-    { id: 'glamping', name: 'Glamping' },
-    { id: 'cube', name: 'CUBE' },
-    { id: 'gekkouen', name: 'Gekkouen' }
+    { id: 'sankando', name: 'Sankando', ja: '山間堂' },
+    { id: 'defg', name: 'DEFG', ja: '新土地' },
+    { id: 'glamping', name: 'Glamping', ja: 'グランピング' },
+    { id: 'cube', name: 'CUBE', ja: 'CUBE' },
+    { id: 'gekkouen', name: 'Gekkouen', ja: '月江苑' }
   ],
   rooms: [
     { name: 'Grand Villa', area: 'sankando', base: 30, perGuest: 30, aliases: ['Grand V', 'Grand'] },
@@ -269,12 +269,12 @@ const DEFAULT_SETTINGS = {
   staff: [
     /* role: clean (cleans rooms) / inspector (quality & hygiene check after cleaning) / backup (only when short-handed)
        startAreas: where this person usually starts the day */
-    { name: 'Ooshiro', start: '9:30', end: '17:30', prefs: ['glamping', 'defg', 'sankando'], startAreas: ['glamping', 'defg'], role: 'clean', color: 0 },
-    { name: 'Akshay', start: '9:30', end: '18:00', prefs: ['glamping', 'sankando', 'defg'], startAreas: ['glamping'], role: 'clean', color: 1 },
-    { name: 'Nashib', start: '10:30', end: '14:30', prefs: ['defg', 'cube', 'sankando'], startAreas: ['defg', 'cube', 'sankando'], role: 'clean', color: 2 },
-    { name: 'Kayo', start: '13:00', end: '16:00', prefs: ['glamping', 'sankando', 'defg'], startAreas: [], role: 'inspector', color: 3 },
-    { name: 'Mahesh', start: '10:30', end: '15:00', prefs: ['sankando', 'defg'], startAreas: ['sankando', 'defg'], role: 'clean', color: 4 },
-    { name: 'Chau', start: '9:00', end: '17:00', prefs: ['glamping', 'defg', 'sankando', 'cube'], startAreas: [], role: 'backup', color: 5 }
+    { name: 'Ooshiro', ja: '大城', lang: 'en', start: '9:30', end: '17:30', prefs: ['glamping', 'defg', 'sankando'], startAreas: ['glamping', 'defg'], role: 'clean', color: 0 },
+    { name: 'Akshay', ja: 'アクシャイ', lang: 'en', start: '9:30', end: '18:00', prefs: ['glamping', 'sankando', 'defg'], startAreas: ['glamping'], role: 'clean', color: 1 },
+    { name: 'Nashib', ja: 'ナシブ', lang: 'en', start: '10:30', end: '14:30', prefs: ['defg', 'cube', 'sankando'], startAreas: ['defg', 'cube', 'sankando'], role: 'clean', color: 2 },
+    { name: 'Kayo', ja: 'かよ', lang: 'ja', start: '13:00', end: '16:00', prefs: ['glamping', 'sankando', 'defg'], startAreas: [], role: 'inspector', color: 3 },
+    { name: 'Mahesh', ja: '魔屁酢', lang: 'en', start: '10:30', end: '15:00', prefs: ['sankando', 'defg'], startAreas: ['sankando', 'defg'], role: 'clean', color: 4 },
+    { name: 'Chau', ja: 'チャウ', lang: 'en', start: '9:00', end: '17:00', prefs: ['glamping', 'defg', 'sankando', 'cube'], startAreas: [], role: 'backup', color: 5 }
   ],
   fixed: [
     { label: 'Last check', area: 'glamping', start: '14:00', dur: 60, staff: 'Ooshiro', on: true },
@@ -320,6 +320,8 @@ const DEFAULT_SETTINGS = {
     cube: ['Fallen leaves — blow / sweep', 'Weeding'],
     gekkouen: ['Fallen leaves — blow / sweep', 'Weeding', 'Roof gutters & drains — clear fallen leaves and sludge', 'Spider web check']
   },
+  /* Japanese check list (staff with lang 'ja', e.g. Kayo): extra check items per area */
+  checkItemsJa: { cube: ['カビの有無と除去'], glamping: ['カビの有無と除去'] },
   /* Daily message per area, copied as-is. {date} = 20261103, {rooms} = that area's rooms today */
   messages: {
     glamping: `💡💡💡😃💡💡💡
@@ -826,7 +828,61 @@ function emailFor(name) {
 }
 
 /* One numbered block (1.0, 2.0 …) per slot on the timeline, in time order */
+/* ---------- Japanese check list (e.g. Kayo) ---------- */
+const JA_FOOTER = '＝＝＝＝＝＝\n😃📝🔐🛠️📞⏰💝😃';
+const staffCfg = n => S.staff.find(x => x.name === n) || {};
+const isJa = n => staffCfg(n).lang === 'ja';
+const jaName = n => staffCfg(n).ja || n;
+const areaJa = id => { const a = S.areas.find(x => x.id === id); return (a && (a.ja || a.name)) || id; };
+const shortRoom = r => { const m = r.match(/^Villa\s+(.+)$/i); if (m) return m[1]; if (/^grand villa$/i.test(r)) return 'Grand'; return /^[A-Za-z]/.test(r) ? r.toUpperCase() : r; };
+const noteJa = n => n.replace(/(\d+)\s*PET/i, 'ペット$1匹').replace(/BONFIRE/gi, '焚き火')
+  .replace(/Guest Will Pay\s*(¥[\d,]+)\s*Cash On Arrival/i, '到着時 現金$1').replace(/check-?in/gi, 'IN')
+  .replace(/All registration need then/i, '全員の宿泊者登録が必要→');
+function staffBlocksJa(name, its) {
+  const sd = P.staffDay.find(s => s.name === name) || {};
+  const A = parseArrivals(P.arrivals || '', S), arr = A.items;
+  const mine = P.blocks.filter(b => b.staff === name).sort((a, b) => a.start - b.start);
+  const insp = mine.filter(b => b.kind === 'inspect');
+  const areas = [...new Set(insp.map(b => b.area))];
+  const roomLine = (room, cleaned) => {
+    const a = arr.find(x => x.room === room), it = its.items.find(i => i.room === room);
+    const st = a ? ({ in: '客有り', outin: '客有り', stay: '客有り（連泊）', empty: '客無し', out: '退房のみ' }[a.type] || '') : (it && it.mode === 'full' ? '客有り' : '');
+    const g = a && a.guests != null ? a.guests : (it ? it.guests : null);
+    const t = (a && (a.window || a.arrival)) || (it && it.arrival) || '';
+    const p = [st];
+    if (g != null && st !== '客無し') p.push(`${g}名`);
+    if (t) p.push(`${t} IN`);
+    if (cleaned) p.push('清掃済');
+    if (a) a.notes.forEach(n => p.push(noteJa(n)));
+    return `${shortRoom(room)} ${p.filter(Boolean).join(' ')}`;
+  };
+  const out = [{ L: [`⏰${hhmm(T(sd.start || '13:00'))}⏰`] }];
+  // one section per stop, in the order she walks; the first stop in an area also lists that area's other rooms
+  const listed = new Set();
+  for (const b of insp) {
+    const cleaners = [...new Set(P.blocks.filter(x => x.kind === 'clean' && x.area === b.area).map(x => jaName(x.staff)))];
+    const first = !listed.has(b.area); listed.add(b.area);
+    const L = [`→${areaJa(b.area)}　${cleaners.join('　')}　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}${first ? '' : '（戻り）'}`];
+    if (first) ((S.checkItemsJa || {})[b.area] || []).forEach(x => L.push(`・${x}`));
+    b.rooms.forEach(r => L.push(roomLine(r, true)));
+    if (first) {
+      const checkedHere = insp.filter(x => x.area === b.area).flatMap(x => x.rooms);
+      arr.filter(x => x.area === b.area && !checkedHere.includes(x.room)).forEach(x => L.push(roomLine(x.room, false)));
+    }
+    out.push({ L });
+  }
+  // areas with guests today that she does not visit: listed for reference
+  const rest = [...new Set(arr.filter(x => x.area && !areas.includes(x.area)).map(x => x.area))];
+  for (const area of rest) out.push({ L: [`→${areaJa(area)}（参考）`, ...arr.filter(x => x.area === area).map(x => roomLine(x.room, false))] });
+  if ((P.uninspected || []).length) out.push({ L: ['⏳ 時間が足りない：' + P.uninspected.map(shortRoom).join('、')] });
+  const ex = (P.extra || {})[name] || {};
+  if (ex.top && ex.top.trim()) out.splice(1, 0, { L: ex.top.trim().split('\n') });
+  if (ex.bottom && ex.bottom.trim()) out.push({ L: ex.bottom.trim().split('\n') });
+  return out.map(o => ({ type: 'text', text: o.L.join('\n') }));
+}
+
 function staffBlocks(name, its) {
+  if (isJa(name) && staffCfg(name).role === 'inspector') return staffBlocksJa(name, its);
   const sd = P.staffDay.find(s => s.name === name) || {};
   const mine = P.blocks.filter(b => b.staff === name).sort((a, b) => a.start - b.start);
   const out = mine.map(b => {
@@ -904,6 +960,16 @@ function staffBlocks(name, its) {
   if (out.length && notes.length) out.push({ L: ['‼️ Attention each villa', ...notes.map(x => `・${x}`)] });
   return out.map(o => ({ type: 'text', text: o.L.join('\n') }));
 }
+function footerFor(name, cfg) { return isJa(name) ? JA_FOOTER : cfg.footer; }
+function lineTextFor(name, blocks, cfg) {
+  if (!isJa(name)) return lineText(blocks, cfg);
+  const L = [];
+  if (cfg.header && cfg.header.trim()) L.push(cfg.header);
+  L.push(P.date.replace(/-/g, ''));
+  blocks.forEach(b => { b.text.split('\n').forEach(l => L.push(l)); L.push(''); });
+  JA_FOOTER.split('\n').forEach(l => L.push(l));
+  return L.join('\n');
+}
 function lineText(blocks, cfg) {
   const L = [];
   if (cfg.header && cfg.header.trim()) L.push(cfg.header);
@@ -949,7 +1015,7 @@ function renderSend() {
         ${canSend && store.mode === 'sb' ? `<select data-sendmail="${esc(x.name)}" aria-label="${esc(x.name)} 的信箱" style="width:100%">${rosterOpts(em)}</select>` : ''}
         ${sent && !sent.ok ? `<div class="hint" style="color:var(--bad)">${esc(sent.err)}</div>` : ''}
         <textarea class="extra" data-extra="${esc(x.name)}" data-pos="top" rows="2" placeholder="上方追加（例：8:50 先到事務所拿鑰匙）">${esc(ex(x.name).top || '')}</textarea>
-        <pre class="share" id="line-${i}" data-linefor="${esc(x.name)}">${esc(lineText(x.blocks, cfg))}</pre>
+        <pre class="share" id="line-${i}" data-linefor="${esc(x.name)}">${esc(lineTextFor(x.name, x.blocks, cfg))}</pre>
         <textarea class="extra" data-extra="${esc(x.name)}" data-pos="bottom" rows="2" placeholder="下方追加（例：結束後把毛巾送到洗衣房）">${esc(ex(x.name).bottom || '')}</textarea>
       </div>`;
     }).join('')}</div>
@@ -966,7 +1032,7 @@ document.addEventListener('input', e => {
   P.extra = P.extra || {}; P.extra[n] = { ...(P.extra[n] || {}), [t.dataset.pos]: t.value };
   savePlan();
   const pre = [...document.querySelectorAll('[data-linefor]')].find(x => x.dataset.linefor === n);
-  if (pre) pre.textContent = lineText(staffBlocks(n, items()), mdclCfg());
+  if (pre) pre.textContent = lineTextFor(n, staffBlocks(n, items()), mdclCfg());
 });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -992,7 +1058,7 @@ document.addEventListener('click', async e => {
     sendState.busy = true; renderSend();
     const at = new Date().toTimeString().slice(0, 5);
     for (const x of list) {
-      const payload = { work_date: P.date, staff_email: emailFor(x.name), data: { blocks: x.blocks, header: cfg.header, footer: cfg.footer, personName: x.name }, updated_at: new Date().toISOString() };
+      const payload = { work_date: P.date, staff_email: emailFor(x.name), data: { blocks: x.blocks, header: cfg.header, footer: footerFor(x.name, cfg), personName: x.name }, updated_at: new Date().toISOString() };
       const { error } = await store.sb.from('assignments').upsert(payload, { onConflict: 'work_date,staff_email' });
       sendState.sent[x.name] = error ? { ok: false, err: error.message } : { ok: true, at };
     }
@@ -1447,7 +1513,8 @@ function renderSettings() {
           ${tsel(s.end, `data-send="${i}" aria-label="下班"`)}
           <div class="swatches">${COLORS.map((c, k) => `<button class="swatch" style="background:${c}" data-scol="${i}:${k}" aria-pressed="${s.color === k}" aria-label="顏色 ${k + 1}"></button>`).join('')}</div>
           <button class="btn sm danger" data-sdel="${i}">刪除</button></div>
-        <div class="row"><span class="hint">角色：</span><select data-srole="${i}" aria-label="角色">${Object.entries(ROLE_NAME).map(([k, v]) => `<option value="${k}" ${(s.role || 'clean') === k ? 'selected' : ''}>${v}${k === 'inspector' ? '（清掃完成後做衛生確認）' : k === 'backup' ? '（平常不排，人手不夠時提醒）' : ''}</option>`).join('')}</select></div>
+        <div class="row"><span class="hint">日文名：</span><input value="${esc(s.ja || '')}" data-sja="${i}" aria-label="日文名" style="width:100px"><span class="hint">清單語言：</span><select data-slang="${i}" aria-label="清單語言"><option value="en" ${s.lang !== 'ja' ? 'selected' : ''}>English</option><option value="ja" ${s.lang === 'ja' ? 'selected' : ''}>日本語</option></select>
+          <span class="hint">角色：</span><select data-srole="${i}" aria-label="角色">${Object.entries(ROLE_NAME).map(([k, v]) => `<option value="${k}" ${(s.role || 'clean') === k ? 'selected' : ''}>${v}${k === 'inspector' ? '（清掃完成後做衛生確認）' : k === 'backup' ? '（平常不排，人手不夠時提醒）' : ''}</option>`).join('')}</select></div>
         <div class="chips"><span class="hint">常負責：</span>${S.areas.map(a => `<button class="chip" data-spref="${i}:${a.id}" aria-pressed="${s.prefs.includes(a.id)}">${esc(a.name)}</button>`).join('')}</div>
         <div class="chips"><span class="hint">通常從這裡開始：</span>${S.areas.map(a => `<button class="chip" data-sstartarea="${i}:${a.id}" aria-pressed="${(s.startAreas || []).includes(a.id)}">${esc(a.name)}</button>`).join('')}</div>
       </div>`).join('')}
@@ -1485,7 +1552,7 @@ function renderSettings() {
     </div>
     <div class="panel">
       <h2>區域 <button class="btn sm" id="addArea">＋ 區域</button></h2>
-      <div style="display:grid;gap:6px">${S.areas.map((a, i) => `<div class="row"><input value="${esc(a.name)}" data-aname="${i}" aria-label="區域名稱" style="width:160px"><span class="hint">${S.rooms.filter(r => r.area === a.id).map(r => r.name).join('、') || '（沒有房間）'}</span></div>`).join('')}</div>
+      <div style="display:grid;gap:6px">${S.areas.map((a, i) => `<div class="row"><input value="${esc(a.name)}" data-aname="${i}" aria-label="區域名稱" style="width:140px"><input value="${esc(a.ja || '')}" data-aja="${i}" aria-label="日文名稱" placeholder="日文名稱" style="width:110px"><input value="${esc(((S.checkItemsJa || {})[a.id] || []).join('、'))}" data-acheck="${a.id}" aria-label="日文確認項目" placeholder="日文確認項目（用、分隔）" style="width:220px"><span class="hint">${S.rooms.filter(r => r.area === a.id).map(r => r.name).join('、') || '（沒有房間）'}</span></div>`).join('')}</div>
     </div>
     <div class="panel" style="grid-column:1/-1">
       <h2>專職員工的固定流程（English）</h2>
@@ -1838,6 +1905,10 @@ $('view-set').addEventListener('change', e => {
   else if (d.rulelist != null) S.rules[d.rulelist] = t.value.split(/[,，、\s]+/).filter(x => /^\d{1,2}[:：]\d{2}$/.test(x)).map(x => fmt(T(x.replace('：', ':'))));
   else if (d.rule != null) S.rules[d.rule] = t.tagName === 'SELECT' ? fmt(T(t.value)) : num(t.value);
   else if (d.aname != null) S.areas[+d.aname].name = t.value.trim();
+  else if (d.aja != null) S.areas[+d.aja].ja = t.value.trim();
+  else if (d.acheck != null) { S.checkItemsJa = S.checkItemsJa || {}; S.checkItemsJa[d.acheck] = t.value.split(/[、,，\n]/).map(x => x.trim()).filter(Boolean); }
+  else if (d.sja != null) S.staff[+d.sja].ja = t.value.trim();
+  else if (d.slang != null) S.staff[+d.slang].lang = t.value;
   else if (d.rt != null) {
     const [a, k, f] = d.rt.split(':'); const r = S.routines[a][+k];
     if (f === 'time') r.time = t.value ? fmt(T(t.value)) : '';
@@ -1955,6 +2026,12 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
       S.version = 7; saveSettings();
     }
     if ((S.version || 1) < 8) { S.version = 8; saveSettings(); }
+    if ((S.version || 1) < 9) { // v9: Japanese names and Kayo's Japanese check list
+      for (const a of DEFAULT_SETTINGS.areas) { const x = S.areas.find(y => y.id === a.id); if (x && !x.ja) x.ja = a.ja; }
+      for (const d of DEFAULT_SETTINGS.staff) { const x = S.staff.find(y => y.name.toLowerCase() === d.name.toLowerCase()); if (x) { if (!x.ja) x.ja = d.ja; if (!x.lang) x.lang = d.lang; } }
+      if (!S.checkItemsJa) S.checkItemsJa = clone(DEFAULT_SETTINGS.checkItemsJa);
+      S.version = 9; saveSettings();
+    }
   }
   const dates = (await store.listPlans()).sort();
   dates.forEach(d => knownDates.add(d));
