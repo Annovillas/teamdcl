@@ -84,6 +84,8 @@
   details.mini>summary{cursor:pointer; font-size:13px; color:var(--muted); list-style:none}
   details.mini>summary::-webkit-details-marker{display:none}
   .spin{font-size:13px; color:var(--muted)}
+  body.wide .wrap{max-width:1440px}
+  #plannerFrame{display:block; width:100%; min-height:80vh; border:1px solid var(--line); border-radius:var(--radius); background:#fff; box-shadow:var(--shadow)}
   .langseg{position:fixed; top:11px; right:11px; z-index:50; display:inline-flex; gap:2px; background:rgba(255,255,255,.92); backdrop-filter:blur(6px); border:1px solid var(--line); border-radius:999px; padding:3px; box-shadow:var(--shadow)}
   .langseg button{font-family:inherit; font-size:12.5px; font-weight:600; border:none; background:transparent; color:var(--muted); padding:6px 12px; border-radius:999px; cursor:pointer; transition:.15s; white-space:nowrap; line-height:1}
   .langseg button.active{background:var(--amber); color:#fff; box-shadow:0 1px 3px rgba(194,122,42,.4)}
@@ -137,14 +139,20 @@
   <div id="adminScreen" class="hidden">
     <div class="topbar"><span class="lamp">🟣</span><h1 data-i18n="adminTitle">Matrix DCL 管理</h1><span class="who" id="whoA"></span></div>
     <div class="tabs">
-      <button class="tab active" data-tab="make" data-i18n="tabMake">作成</button>
+      <button class="tab active" data-tab="plan" data-i18n="tabPlan">排班</button>
+      <button class="tab" data-tab="make" data-i18n="tabMake">作成</button>
       <button class="tab" data-tab="hist" data-i18n="tabHist">履歴</button>
       <button class="tab" data-tab="mem" data-i18n="tabMem">メンバー</button>
       <button class="tab" data-tab="set" data-i18n="tabSet">設定</button>
     </div>
 
+    <!-- PLANNER (排班: DCL → 自動分配 → 送出) -->
+    <div id="tab-plan">
+      <iframe id="plannerFrame" title="排班"></iframe>
+    </div>
+
     <!-- MAKE -->
-    <div id="tab-make">
+    <div id="tab-make" class="hidden">
       <div class="card">
         <div class="row">
           <div style="flex:1; min-width:150px"><label class="fl" data-i18n="date">日付</label><input type="date" id="mDate"></div>
@@ -290,6 +298,7 @@ const T={
   transportTask:"搬運任務", shoppingTitle:"採購", noContent:"（無作業內容）", mapBtn:"🗺️ 地圖", phEmail:"staff@gmail.com" }
 };
 let lang=localStorage.getItem("teamdcl_lang")||"en"; if(!T[lang]) lang="en";
+Object.assign(T.en,{tabPlan:"Planner"}); Object.assign(T.ja,{tabPlan:"動線・割当"}); Object.assign(T.zh,{tabPlan:"排班"});
 Object.assign(T.en,{delTask:"Delete",delConfirm2:"Delete this staff's assignment for this day?",deleted:"Deleted ✓"});
 Object.assign(T.ja,{delTask:"削除",delConfirm2:"この日のこの担当者の作業を削除しますか？",deleted:"削除しました ✓"});
 Object.assign(T.zh,{delTask:"刪除",delConfirm2:"確定刪除這一天這位擔當者的作業？",deleted:"已刪除 ✓"});
@@ -474,7 +483,12 @@ async function route(){
   const { data:{ session } }=await db.auth.getSession();
   if(!session){ show("authScreen"); return; }
   const email=(session.user.email||"").toLowerCase();
-  if(email===ADMIN_EMAIL){ q("whoA").textContent=email; show("adminScreen"); initAdmin(); return; }
+  // 管理者かどうかはデータベース（is_admin）で判定
+  let isAdm=false; try{ const r=await db.rpc("is_admin"); isAdm=(r.data===true); }catch(e){}
+  if(isAdm || email===ADMIN_EMAIL){
+    q("whoA").textContent=email+(isAdm?"":" ⚠️ DB上は管理者ではありません（保存できません）");
+    show("adminScreen"); initAdmin(); return;
+  }
   const { data, error }=await db.from("staff_roster").select("*").eq("email", email).maybeSingle();
   if(!error && data && data.active){ q("whoS").textContent=email; show("staffScreen"); initStaff(data); }
   else { q("whoU").textContent=email; show("unauthScreen"); }
@@ -509,14 +523,23 @@ let entries=[], curStaff="", roster=[];
 function seedEntries(){ entries=[{type:"text",text:""},{type:"text",text:""},{type:"text",text:""}]; }
 
 let adminInited=false;
+function ensurePlanner(){ const f=q("plannerFrame"); if(f && !f.getAttribute("src")) f.setAttribute("src","planner.html"); }
+window.addEventListener("message", e=>{
+  if(e.origin!==location.origin || !e.data) return;
+  if(e.data.type==="planner-height"){ const f=q("plannerFrame"); if(f) f.style.height=Math.max(600, e.data.h+4)+"px"; }
+});
 async function initAdmin(){
   if(adminInited) return; adminInited=true;
+  document.body.classList.add("wide"); ensurePlanner();
   // tabs
   document.querySelectorAll(".tab").forEach(t=>{
     t.onclick=()=>{
       document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
       t.classList.add("active");
-      ["make","hist","mem","set"].forEach(n=>q("tab-"+n).classList.toggle("hidden", n!==t.dataset.tab));
+      ["plan","make","hist","mem","set"].forEach(n=>q("tab-"+n).classList.toggle("hidden", n!==t.dataset.tab));
+      document.body.classList.toggle("wide", t.dataset.tab==="plan");
+      if(t.dataset.tab==="plan") ensurePlanner();
+      if(t.dataset.tab==="make") loadForSelection();
       if(t.dataset.tab==="mem") loadRoster();
     };
   });
