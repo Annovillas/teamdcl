@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:light}body{margin:0;font:14px/1.5 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{color-scheme:light}body{margin:0;font:14px/1.5 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}body:not(.ready) #app{visibility:hidden}</style>
 <title>排班 · Matrix DCL</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -608,7 +608,7 @@ function findIssues(plan, items, staffDay, S) {
   for (const it of items) {
     if (it.skip) continue;
     const bl = plan.blocks.filter(b => b.kind === 'clean' && (b.rooms || []).includes(it.room));
-    if (!bl.length) { issues.push({ lvl: 'bad', ids: [], msg: `${it.room}${it.pr ? '（PR）' : ''} 沒有人有空做，需要加人或調整時間` }); continue; }
+    if (!bl.length) { issues.push({ lvl: 'bad', ids: [], msg: `${it.room}${it.pr ? '（PR）' : ''} 還沒有人負責，請分配給某人或加人` }); continue; }
     const end = Math.max(...bl.flatMap(b => partWindows(b).filter(w => w.room === it.room).map(w => w.end)));
     const dl = roomDeadline(it, S);
     if (it.pr && it.arrival && end > dl) issues.push({ lvl: 'bad', ids: bl.map(b => b.id), msg: `${it.room}（PR）預計 ${fmt(end)} 完成，晚於客人抵達 ${it.arrival}` });
@@ -625,7 +625,7 @@ function findIssues(plan, items, staffDay, S) {
 const SB_URL = "https://ywleifnwqsgdlchnwzlg.supabase.co";
 const SB_KEY = "sb_publishable_zim0T9mDbCgAolSuce2HdA_WQJ2RbYc";
 const store = {
-  sb: null, mode: 'local', admin: false, email: '', chains: {}, timers: {},
+  gate: true, sb: null, mode: 'local', admin: false, email: '', chains: {}, timers: {},
   async init() {
     try {
       if (!window.supabase || !window.supabase.createClient) return;
@@ -1092,7 +1092,13 @@ function renderEditor() {
       return `<div class="field">工作內容（點選加入／移除）<div class="chips">${[...menu, ...extra].map(x => `<button class="chip" data-edtask="${esc(x)}" aria-pressed="${(b.tasks || []).includes(x)}">${esc(x)}</button>`).join('') || '<span class="hint">這個區域還沒有選項，可在「設定 → 戶外工作選項」加入</span>'}</div></div>
       <div class="row"><input id="edTaskNew" placeholder="手動輸入其他工作，例如：Wash outdoor chairs" style="flex:1;min-width:200px"><button class="btn sm" id="edTaskAdd">加入</button></div>`;
     })() : ''}
-    ${fixed ? '' : `<div class="field">負責房間（點選加入／移除）<div class="chips">${its.map(i => `<button class="chip" data-edroom="${esc(i.room)}" aria-pressed="${(b.rooms || []).includes(i.room)}">${esc(i.room)}${i.pr ? ' PR' : ''}</button>`).join('')}</div></div>`}
+    ${fixed ? '' : (() => {
+      const who = r => [...new Set(P.blocks.filter(x => x !== b && x.kind === 'clean' && (x.rooms || []).includes(r)).map(x => x.staff))];
+      const chip = i => { const w = who(i.room); return `<button class="chip" data-edroom="${esc(i.room)}" aria-pressed="${(b.rooms || []).includes(i.room)}" title="${w.length ? '也由 ' + esc(w.join('、')) + ' 負責' : '只有這段'}">${esc(i.room)}${i.pr ? ' PR' : ''}${w.length ? ` <span style="opacity:.7">· ${esc(w.join('、'))}</span>` : ''}</button>`; };
+      const here = its.filter(i => i.area === b.area), other = its.filter(i => i.area !== b.area);
+      return `<div class="field">${esc(areaName(b.area))} 的房間（點選加入／移除，時間長度會自動調整；灰字＝也有別人負責）<div class="chips">${here.map(chip).join('') || '<span class="hint">今天沒有</span>'}</div></div>
+        ${other.length ? `<details><summary class="hint" style="cursor:pointer">其他區域的房間</summary><div class="chips" style="margin-top:6px">${other.map(chip).join('')}</div></details>` : ''}`;
+    })()}
     <div class="row">
       <button class="btn sm" id="edSplit">切成兩段</button>
       <button class="btn sm" id="edDup">複製一段</button>
@@ -1126,7 +1132,10 @@ function tsel(v, attrs, empty, prefer) {
   const blank = empty != null ? `<option value="" ${cur ? '' : 'selected'}>${esc(empty)}</option>` : '';
   if (prefer && prefer.length) { // common times first, everything else below
     const pf = prefer.map(x => fmt(T(x)));
-    return `<select class="tsel" ${attrs}>${blank}<optgroup label="常用">${pf.map(opt).join('')}</optgroup><optgroup label="其他時間">${vals.filter(x => !pf.includes(x)).map(opt).join('')}</optgroup></select>`;
+    // the full list keeps every time in order; a common time is selected in the top group only
+    const inTop = pf.includes(cur);
+    const optAll = x => `<option value="${x}" ${x === cur && !inTop ? 'selected' : ''}>${x.padStart(5, '0')}</option>`;
+    return `<select class="tsel" ${attrs}>${blank}<optgroup label="常用">${pf.map(opt).join('')}</optgroup><optgroup label="全部時間">${vals.map(optAll).join('')}</optgroup></select>`;
   }
   return `<select class="tsel" ${attrs}>${blank}${vals.map(opt).join('')}</select>`;
 }
@@ -1479,8 +1488,12 @@ function endDrag(e, cancel) {
       const key = g.dataset.group;
       if (view === 'staff') d.b.staff = key;
       else {
-        d.b.area = key;
         const lane = g.dataset.lane;
+        if (lane === 'rooms' && d.b.kind === 'clean' && d.b.area !== key) {
+          const n = fillWithArea(d.b, key);
+          toast(n ? `${d.b.staff} 改到 ${areaName(key)}：已帶入今天 ${n} 間房，請在下方刪掉不需要的` : `${areaName(key)} 今天沒有要清的房間`);
+        }
+        d.b.area = key;
         if (lane === 'outdoor' && d.b.kind === 'clean' && !(d.b.rooms || []).length) { d.b.kind = 'task'; d.b.tasks = []; d.b.label = taskLabel(d.b); }
         if (lane === 'rooms' && d.b.kind === 'task') { d.b.kind = 'clean'; d.b.tasks = []; delete d.b.label; d.b.rooms = []; d.b.parts = []; }
       }
@@ -1550,14 +1563,34 @@ $('editor').addEventListener('click', e => {
   const rc = e.target.closest('[data-edroom]');
   if (rc) {
     const r = rc.dataset.edroom; b.rooms = b.rooms || [];
-    if (b.rooms.includes(r)) { b.rooms = b.rooms.filter(x => x !== r); b.parts = (b.parts || []).filter(p => p.room !== r); }
+    if (b.rooms.includes(r)) b.rooms = b.rooms.filter(x => x !== r);
     else {
-      b.rooms.push(r); b.parts = b.parts || []; b.parts.push({ room: r, team: 1, dur: 30 });
+      b.rooms.push(r);
       const room = S.rooms.find(x => x.name === r); if (room && b.rooms.length === 1) b.area = room.area;
     }
+    fitBlock(b);
     P.edited = true; changed();
   }
 });
+/* A room's share of work for this slot: split evenly with anyone else also cleaning it */
+function roomShare(b, room) {
+  const it = items().items.find(i => i.room === room); if (!it) return 30;
+  const others = new Set(P.blocks.filter(x => x !== b && x.kind === 'clean' && (x.rooms || []).includes(room)).map(x => x.staff));
+  others.delete(b.staff);
+  return Math.ceil(itemMinutes(it, S) / (1 + others.size) / 5) * 5;
+}
+/* Length of a cleaning slot follows its rooms */
+function fitBlock(b) {
+  b.parts = (b.rooms || []).map(r => ({ room: r, team: 1, dur: roomShare(b, r) }));
+  b.dur = Math.max(15, b.parts.reduce((a, p) => a + p.dur, 0));
+}
+/* Moved to another area: take all of that area's rooms today (PR first), to be trimmed by hand */
+function fillWithArea(b, area) {
+  const its = items().items.filter(i => !i.skip && i.area === area);
+  its.sort((x, y) => (y.pr - x.pr) || ((roomDeadline(x, S) ?? 9999) - (roomDeadline(y, S) ?? 9999)));
+  b.area = area; b.rooms = its.map(i => i.room); fitBlock(b);
+  return its.length;
+}
 function taskLabel(b) { return (b.tasks || []).length ? b.tasks.join(' / ') : 'Outdoor work'; }
 function addCustomTask(b) {
   const inp = $('edTaskNew'); const v = (inp && inp.value || '').trim(); if (!v) return;
@@ -1572,7 +1605,10 @@ $('editor').addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'edTaskNew') return;
   if (t.id === 'edStaff') b.staff = t.value;
-  if (t.id === 'edArea') b.area = t.value;
+  if (t.id === 'edArea') {
+    if (b.kind === 'clean' && b.area !== t.value) { const n = fillWithArea(b, t.value); toast(n ? `已帶入 ${areaName(t.value)} 今天 ${n} 間房，請刪掉不需要的` : `${areaName(t.value)} 今天沒有要清的房間`); }
+    else b.area = t.value;
+  }
   if (t.id === 'edLabel') b.label = t.value;
   if (t.id === 'edStart' && t.value) { const end = b.start + b.dur; b.start = T(t.value); b.dur = Math.max(10, end - b.start); }
   if (t.id === 'edEnd' && t.value) b.dur = Math.max(10, T(t.value) - b.start);
@@ -1683,8 +1719,18 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
   // first frame: the 10/31 example, scheduled
   P = newPlan(SAMPLE_DATE, SAMPLE_DCL);
   P.blocks = schedule(items().items, P.staffDay, S).blocks; P.sig = sig();
-  setSync('loading'); renderAll();
+  if (!store.gate) { setSync('loading'); renderAll(); }
   await store.init();
+  // Matrix DCL version: only the admin may see or use the planner
+  if (store.gate && store.mode !== 'sb') {
+    const why = store.tableMissing ? 'Supabase 還沒有 planner_store 表，請先執行 teamdcl_planner.sql。'
+      : store.email ? `${esc(store.email)} 不是管理者帳號，無法使用排班。`
+      : '請先登入 Matrix DCL（管理者帳號）。';
+    $('app').innerHTML = `<div class="panel" style="max-width:520px;margin:40px auto"><h2>🔒 排班</h2><p>${why}</p><p><a href="./">回到 Matrix DCL</a></p></div>`;
+    document.body.classList.add('ready');
+    return;
+  }
+  document.body.classList.add('ready');
   if (typeof loadRoster === 'function') loadRoster();
   const savedS = await store.get('app/settings');
   if (savedS && savedS.rooms) {
