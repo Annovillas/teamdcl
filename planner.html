@@ -178,6 +178,20 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
 .pchip small{font-weight:400;font-size:11px}
 .chip-ghost{position:fixed;z-index:30;pointer-events:none;transform:translate(-50%,-120%);background:var(--c);color:var(--bar-ink);font-weight:700;font-size:13px;padding:5px 12px;border-radius:999px;box-shadow:0 6px 16px rgba(0,0,0,.25)}
 .group.drop-lane .gtrack{outline:2px dashed var(--accent);outline-offset:-3px}
+.board.compact .ticks{height:24px}
+.board.compact .tick{padding-top:4px;font-size:10.5px}
+.board.compact .checkin-flag{top:2px;font-size:10.5px}
+.board.compact .glabel{font-size:13px;padding-block:3px}
+.board.compact .group.out .glabel{font-size:11.5px}
+.board.compact .bar{height:25px;padding-block:1px}
+.board.compact .bar .n{font-size:11.5px}
+.board.compact .bar .r{font-size:10px}
+.board.compact .bar.lc{height:22px}
+.board.compact .bar.lc2{height:25px}
+.board.compact .bar.lc2 .r{font-size:9px}
+.board.compact .lc-warn{top:2px;height:22px;font-size:11.5px}
+.board.compact .group.thin .glabel{font-size:10.5px;padding-block:0;line-height:16px;opacity:.75}
+.board.compact .group.thin .glabel small{display:none}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20}
 @media (prefers-reduced-motion: no-preference){.bar{transition:box-shadow .12s}}
 </style>
@@ -230,10 +244,14 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
           <button class="btn" id="addBlock">＋ 屋外・屋上</button>
           <span class="hint" id="staleHint"></span>
         </div>
-        <div class="seg" role="group" aria-label="顯示方式">
+        <div class="row" style="gap:8px"><div class="seg" role="group" aria-label="顯示方式">
           <button id="vArea" aria-pressed="true">依區域</button>
           <button id="vStaff" aria-pressed="false">依員工</button>
         </div>
+        <div class="seg" role="group" aria-label="大小">
+          <button id="dNormal" aria-pressed="false">標準</button>
+          <button id="dCompact" aria-pressed="true">緊湊</button>
+        </div></div>
       </div>
       <div id="confirmBox"></div>
       <div class="palette" id="palette"></div>
@@ -1388,7 +1406,9 @@ function renderBoard() {
     P.blocks.forEach(b => { if (!names.includes(b.staff)) names.push(b.staff); });
     groups = names.map(n => { const sd = P.staffDay.find(s => s.name === n); return { key: n, title: n, sub: sd && sd.on ? `${sd.start}–${sd.end}` : '今天休', blocks: P.blocks.filter(b => b.staff === n) }; });
   }
-  const LANE = 38;
+  const compact = density === 'compact';
+  const LANE = compact ? 28 : 38;
+  $('board').classList.toggle('compact', compact);
   let html = `<div class="ticks">${ticks}</div>`;
   for (const g of groups) {
     const bl = g.blocks.slice().sort((a, b) => a.start - b.start);
@@ -1402,11 +1422,13 @@ function renderBoard() {
       lanes[li] = b.start + span(b); pos[b.id] = li;
     }
     const n = Math.max(1, lanes.length);
-    const H = n * LANE + 8;
+    const warnHere = g.lane === 'lastcheck' && view === 'area' && lcMissing().includes(g.key);
+    const thin = compact && !bl.length && !warnHere;   // empty row: a thin strip you can still click / drop on
+    const H = thin ? 16 : n * LANE + (compact ? 4 : 8);
     let bars = '';
     for (const b of bl) {
       const fixed = b.kind !== 'clean';
-      const top = 4 + pos[b.id] * LANE;
+      const top = (compact ? 2 : 4) + pos[b.id] * LANE;
       const rooms = fixed ? (b.label || '') : partLabel(b);
       const main = view === 'area' ? b.staff : (fixed ? areaName(b.area) : areaName(b.area));
       const subt = view === 'area' ? rooms : (fixed ? b.label : rooms);
@@ -1420,8 +1442,8 @@ function renderBoard() {
       </div>`;
     }
     const hue = view === 'area' ? AREA_HUES[Math.max(0, S.areas.findIndex(a => a.id === g.key)) % AREA_HUES.length] : null;
-    html += `<div class="group ${g.lane === 'outdoor' ? 'out' : ''} ${g.lane === 'lastcheck' ? 'out lcl' : ''} ${g.lane === 'rooms' ? 'rooms' : ''} ${hue != null ? 'tinted' : ''}" ${hue != null ? `style="--h:${hue}"` : ''} data-group="${esc(g.key)}" data-lane="${g.lane || ''}">
-      <div class="glabel" style="width:${LABEL}px;min-height:${H}px">${esc(g.title)}${g.sub ? `<small>${esc(g.sub)}</small>` : ''}</div>
+    html += `<div class="group ${thin ? 'thin' : ''} ${g.lane === 'outdoor' ? 'out' : ''} ${g.lane === 'lastcheck' ? 'out lcl' : ''} ${g.lane === 'rooms' ? 'rooms' : ''} ${hue != null ? 'tinted' : ''}" ${hue != null ? `style="--h:${hue}"` : ''} data-group="${esc(g.key)}" data-lane="${g.lane || ''}">
+      <div class="glabel" style="width:${LABEL}px;min-height:${H}px">${esc(g.title)}${g.sub && !compact ? `<small>${esc(g.sub)}</small>` : ''}</div>
       <div class="gtrack" style="width:${W}px;min-height:${H}px">${vlines}${bars}${g.lane === 'lastcheck' && view === 'area' && lcMissing().includes(g.key) ? (() => {
         const ci = T(S.rules.checkin), a0 = ci - 60;
         return `<button class="lc-warn" data-lcwarn="${esc(g.key)}" style="left:${x(a0)}px;width:${Math.max(60, 60 * ppm - 2)}px" title="${esc(areaName(g.key))}：今天有客人入住，還沒安排 Last check。點一下新增">⚠️ 未安排</button>`;
@@ -1868,6 +1890,15 @@ $('addBlock').onclick = () => {
   $('editor').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 };
 $('vArea').onclick = () => { view = 'area'; $('vArea').setAttribute('aria-pressed', 'true'); $('vStaff').setAttribute('aria-pressed', 'false'); renderBoard(); };
+let density = (() => { try { return localStorage.getItem('hk:density') || 'compact'; } catch (e) { return 'compact'; } })();
+function setDensity(d) {
+  density = d; try { localStorage.setItem('hk:density', d); } catch (e) { }
+  $('dNormal').setAttribute('aria-pressed', d === 'normal'); $('dCompact').setAttribute('aria-pressed', d === 'compact');
+  renderBoard();
+}
+$('dNormal').onclick = () => setDensity('normal');
+$('dCompact').onclick = () => setDensity('compact');
+$('dNormal').setAttribute('aria-pressed', density === 'normal'); $('dCompact').setAttribute('aria-pressed', density === 'compact');
 $('vStaff').onclick = () => { view = 'staff'; $('vStaff').setAttribute('aria-pressed', 'true'); $('vArea').setAttribute('aria-pressed', 'false'); renderBoard(); };
 
 /* drag / resize / select on the board */
