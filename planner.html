@@ -150,8 +150,13 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
 .group.lcl .glabel{color:var(--lc)}
 .bar.lc{background:repeating-linear-gradient(135deg,var(--lc-bg) 0 6px,transparent 6px 12px),var(--lc-bg);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--lc)}
 .bar.lc.sel{box-shadow:0 0 0 2px var(--ink),0 3px 10px rgba(0,0,0,.18)}
-.bar.lc{background:var(--lcbar);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--lcbar-line);justify-content:center}
-.bar.lc .n{font-size:13px}
+.bar.lc{width:auto;height:28px;padding:0 14px;border-radius:999px;justify-content:center;white-space:nowrap;color:var(--ink);box-shadow:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6'%3E%3Cpath d='M0 3 Q3 0 6 3 T12 3' fill='none' stroke='%23B8860B' stroke-width='1.6'/%3E%3C/svg%3E") repeat-x top left/12px 6px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6'%3E%3Cpath d='M0 3 Q3 0 6 3 T12 3' fill='none' stroke='%23B8860B' stroke-width='1.6'/%3E%3C/svg%3E") repeat-x bottom left/12px 6px,var(--lcbar)}
+.bar.lc .n{font-size:13px;overflow:visible}
+.bar.lc2{height:34px;border-radius:17px;line-height:1.15}
+.bar.lc2 .r{font-size:10px;opacity:.85;overflow:visible}
+.bar.lc::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--lcbar-line)}
+.bar.lc.sel{box-shadow:0 0 0 2px var(--ink),0 3px 10px rgba(0,0,0,.18)}
 /* facility colour bands: rooms / outdoor / last check get a step darker of the same hue */
 .group.tinted .gtrack,.group.tinted .glabel{background:hsl(var(--h) var(--tint-s) var(--tint-l))}
 .group.tinted.out .gtrack,.group.tinted.out .glabel{background:hsl(var(--h) var(--tint-s) calc(var(--tint-l) - 3%))}
@@ -162,6 +167,10 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
 .lc-row{display:flex;gap:12px;flex-wrap:wrap;padding:6px 10px;border-radius:6px;background:var(--sunk)}
 .lc-row b{min-width:150px}
 .lc-none{color:var(--warn);font-weight:500}
+.lc-warn{position:absolute;top:6px;height:28px;border:2px dashed var(--bad);background:var(--bad-bg);color:var(--bad);border-radius:6px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;white-space:nowrap;overflow:hidden;z-index:2}
+.lc-warn:hover{background:var(--bad);color:var(--surface)}
+@media (prefers-reduced-motion: no-preference){.lc-warn{animation:lcpulse 1.6s ease-in-out infinite}}
+@keyframes lcpulse{50%{opacity:.6}}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20}
 @media (prefers-reduced-motion: no-preference){.bar{transition:box-shadow .12s}}
 </style>
@@ -863,6 +872,12 @@ const shortRoom = r => { const m = r.match(/^Villa\s+(.+)$/i); if (m) return m[1
 const noteJa = n => n.replace(/(\d+)\s*PET/i, 'ペット$1匹').replace(/BONFIRE/gi, '焚き火')
   .replace(/Guest Will Pay\s*(¥[\d,]+)\s*Cash On Arrival/i, '到着時 現金$1').replace(/check-?in/gi, 'IN')
   .replace(/All registration need then/i, '全員の宿泊者登録が必要→');
+/* when today's cleaning of a room should be finished */
+function roomDoneAt(room) {
+  let end = 0;
+  for (const b of P.blocks) if (b.kind === 'clean') for (const w of partWindows(b)) if (w.room === room) end = Math.max(end, w.end);
+  return end || null;
+}
 function staffBlocksJa(name, its) {
   const sd = P.staffDay.find(s => s.name === name) || {};
   const A = parseArrivals(P.arrivals || '', S), arr = A.items;
@@ -875,13 +890,17 @@ function staffBlocksJa(name, its) {
   const noMoney = n => !/現金|cash|¥|￥|円|pay/i.test(n);
   const roomLine = room => {
     const a = arr.find(x => x.room === room), it = dcl.find(i => i.room === room);
-    const st = a ? ({ in: '客有り', outin: '客有り', stay: '客有り（連泊）', empty: '客無し', out: '退房のみ' }[a.type] || '') : (it && it.mode === 'full' ? '客有り' : '');
+    const st = a ? ({ in: '客有り', outin: '客有り', stay: '客有り（連泊）', empty: '客無し', out: '退房のみ' }[a.type] || '') : (it ? '客有り' : '');
     const g = a && a.guests != null ? a.guests : (it ? it.guests : null);
     const t = (a && (a.window || a.arrival)) || (it && it.arrival) || '';
     const p = [st];
     if (g != null && st !== '客無し' && st !== '客有り（連泊）') p.push(`${g}名`);
     if (t) p.push(`${t} IN`);
-    if (it) { const c = cleanersOf(room); p.push(c.length ? `清掃済（${c.join('・')}）` : '清掃（担当未定）'); }
+    if (it) {   // cleaned today: who, and when it should be finished (the list goes out in the morning)
+      const c = cleanersOf(room), end = roomDoneAt(room);
+      const what = it.mode === 'add' ? `清掃済・${it.add}名分追加準備` : '本日清掃';
+      p.push(c.length ? `${what}（${c.join('・')}${end ? `・〜${hhmm(end)}完了予定` : ''}）` : `${what}（担当未定）`);
+    }
     else if (a && (a.type === 'in' || a.type === 'outin')) p.push('昨日清掃完成');   // guests today but not on today's cleaning list
     if (a) a.notes.map(noteJa).filter(noMoney).forEach(n => p.push(n));
     return `${shortRoom(room)} ${p.filter(Boolean).join(' ')}`;
@@ -891,7 +910,7 @@ function staffBlocksJa(name, its) {
   // one section per stop, in the order she walks; the first stop in an area also lists that area's other rooms
   const listed = new Set();
   for (const b of mine.filter(x => x.kind === 'inspect' || x.kind === 'lastcheck')) {
-    if (b.kind === 'lastcheck') { out.push({ L: [`→${areaJa(b.area)}　ラストチェック　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}`, ...(b.rooms || []).map(r => roomLine(r))] }); continue; }
+    if (b.kind === 'lastcheck') { const s = lcStep(b); out.push({ L: [`→${areaJa(b.area)}　ラストチェック${s ? '（' + LC_TAG[s].ja + '）' : ''}　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}`, ...(b.rooms || []).map(r => roomLine(r))] }); continue; }
     const first = !listed.has(b.area); listed.add(b.area);
     const L = [`→${areaJa(b.area)}　${areaCleaners(b.area).join('　')}　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}${first ? '' : '（戻り）'}`];
     if (first) ((S.checkItemsJa || {})[b.area] || []).forEach(x => L.push(`・${x}`));
@@ -942,7 +961,7 @@ function staffBlocks(name, its) {
         const g = a.guests ?? (it ? it.guests : null);
         const by = [...new Set(P.blocks.filter(x => x.kind === 'clean' && (x.rooms || []).includes(r)).map(x => x.staff))];
         const when = a.arrival || (it && it.arrival) || '';
-        L.push(`✅ ${r}${it && it.pr ? ' ★PR' : ''} · ${g != null ? g + ' guests' : ''}${a.window || when ? ' · arrive ' + (a.window || when) : ''}${it && it.beds ? ` (${it.beds})` : ''}${(a.notes || []).length ? ' · ' + a.notes.join(' · ') : ''}${a.type === 'empty' ? ' · ⚠️ check list says empty (x)' : a.type === 'stay' ? ' · ⚠️ check list says CTS' : ''}${by.length ? ` — cleaned by ${by.join(', ')}` : ''}`);
+        L.push(`✅ ${r}${it && it.pr ? ' ★PR' : ''} · ${g != null ? g + ' guests' : ''}${a.window || when ? ' · arrive ' + (a.window || when) : ''}${it && it.beds ? ` (${it.beds})` : ''}${(a.notes || []).length ? ' · ' + a.notes.join(' · ') : ''}${a.type === 'empty' ? ' · ⚠️ check list says empty (x)' : a.type === 'stay' ? ' · ⚠️ check list says CTS' : ''}${by.length ? ` — cleaning today: ${by.join(', ')}${roomDoneAt(r) ? ` (done ~${hhmm(roomDoneAt(r))})` : ''}` : ''}`);
       }
     } else if (b.kind === 'task') {
       L.push(`${head} · Outdoor / Roof top Balcony`);
@@ -952,7 +971,8 @@ function staffBlocks(name, its) {
       L.push(`${head} · ${b.label || (r && r.title) || ''}`);
       ((r && r.details) || []).forEach(x => L.push(`□ ${x}`));
     } else {
-      L.push(`${head} · ${b.label || ''}`);
+      const s = isLC(b) ? lcStep(b) : null;
+      L.push(`${head} · ${b.label || ''}${s ? ` (${LC_TAG[s].en} / ${LC_TAG[s].ja})` : ''}`);
     }
     return { start: b.start, end: b.start + b.dur, L };
   });
@@ -1257,6 +1277,13 @@ let geo = null;
 /* each facility gets its own hue; its three lanes are light / lighter / lightest of it */
 const AREA_HUES = [28, 190, 110, 222, 330, 270, 55];
 const isLC = b => b.kind === 'lastcheck' || (b.kind === 'fixed' && /last\s*check|残り\s*チェック/i.test(b.label || ''));
+/* 2–3 last checks in one facility: the first checks the rooms finished so far, the later ones the remaining rooms */
+const LC_TAG = { done: { ja: '完成部屋', en: 'Finished rooms' }, rest: { ja: '残り部屋', en: 'Remaining rooms' } };
+function lcStep(b) {
+  const bl = P.blocks.filter(x => x.area === b.area && isLC(x)).sort((a, c) => a.start - c.start);
+  return bl.length < 2 ? null : (bl[0] === b ? 'done' : 'rest');
+}
+const lcTagText = b => { const s = lcStep(b); return s ? `${LC_TAG[s].ja} · ${LC_TAG[s].en}` : ''; };
 const lcLabel = b => 'Last check' + ((b.rooms || []).length ? ': ' + b.rooms.join(', ') : '');
 function renderBoard() {
   const R = S.rules, d0 = T(R.dayStart), d1 = T(R.dayEnd);
@@ -1305,10 +1332,12 @@ function renderBoard() {
     const bl = g.blocks.slice().sort((a, b) => a.start - b.start);
     const lanes = [];
     const pos = {};
+    const lcText = b => view === 'area' ? b.staff : `Last check · ${areaName(b.area)}`;
+    const span = b => isLC(b) ? Math.ceil((Math.max(lcText(b).length * 8, lcTagText(b).length * 6) + 34) / ppm) : b.dur;   // tags: width of the text
     for (const b of bl) {
       let li = lanes.findIndex(end => end <= b.start);
       if (li < 0) { li = lanes.length; lanes.push(0); }
-      lanes[li] = b.start + b.dur; pos[b.id] = li;
+      lanes[li] = b.start + span(b); pos[b.id] = li;
     }
     const n = Math.max(1, lanes.length);
     const H = n * LANE + 8;
@@ -1320,18 +1349,21 @@ function renderBoard() {
       const main = view === 'area' ? b.staff : (fixed ? areaName(b.area) : areaName(b.area));
       const subt = view === 'area' ? rooms : (fixed ? b.label : rooms);
       const prLate = badIds.has(b.id);
-      bars += `<div class="bar ${fixed ? 'fixed' : ''} ${b.kind === 'task' ? 'task' : ''} ${isLC(b) ? 'lc' : ''} ${b.id === selId ? 'sel' : ''} ${prLate ? 'bad' : ''}" data-id="${b.id}"
-        style="left:${x(b.start)}px;top:${top}px;width:${Math.max(18, b.dur * ppm - 2)}px;${fixed ? '' : `background:${staffColor(b.staff)}`}"
-        title="${esc(`${b.staff}｜${areaName(b.area)}｜${fmt(b.start)}–${fmt(b.start + b.dur)}｜${rooms}`)}" tabindex="0" role="button">
-        ${isLC(b) && view === 'area' ? `<span class="n">${esc(b.staff)}</span>` : `<span class="n">${esc(main)} <span class="mono" style="font-weight:400;font-size:11px">${fmt(b.start)}–${fmt(b.start + b.dur)}</span></span>
-        <span class="r">${esc(subt)}</span>`}
-        <span class="h" data-resize="${b.id}"></span>
+      bars += `<div class="bar ${fixed ? 'fixed' : ''} ${b.kind === 'task' ? 'task' : ''} ${isLC(b) ? 'lc' + (lcStep(b) ? ' lc2' : '') : ''} ${b.id === selId ? 'sel' : ''} ${prLate ? 'bad' : ''}" data-id="${b.id}"
+        style="left:${x(b.start)}px;top:${top + (isLC(b) ? 3 : 0)}px;${isLC(b) ? '' : `width:${Math.max(18, b.dur * ppm - 2)}px;`}${fixed ? '' : `background:${staffColor(b.staff)}`}"
+        title="${esc(`${isLC(b) ? 'Last check｜' : ''}${b.staff}｜${areaName(b.area)}｜${fmt(b.start)}–${fmt(b.start + b.dur)}｜${rooms}`)}" tabindex="0" role="button">
+        ${isLC(b) ? `<span class="n">${esc(lcText(b))}</span>${lcTagText(b) ? `<span class="r">${esc(lcTagText(b))}</span>` : ''}` : `<span class="n">${esc(main)} <span class="mono" style="font-weight:400;font-size:11px">${fmt(b.start)}–${fmt(b.start + b.dur)}</span></span>
+        <span class="r">${esc(subt)}</span>
+        <span class="h" data-resize="${b.id}"></span>`}
       </div>`;
     }
     const hue = view === 'area' ? AREA_HUES[Math.max(0, S.areas.findIndex(a => a.id === g.key)) % AREA_HUES.length] : null;
     html += `<div class="group ${g.lane === 'outdoor' ? 'out' : ''} ${g.lane === 'lastcheck' ? 'out lcl' : ''} ${g.lane === 'rooms' ? 'rooms' : ''} ${hue != null ? 'tinted' : ''}" ${hue != null ? `style="--h:${hue}"` : ''} data-group="${esc(g.key)}" data-lane="${g.lane || ''}">
       <div class="glabel" style="width:${LABEL}px;min-height:${H}px">${esc(g.title)}${g.sub ? `<small>${esc(g.sub)}</small>` : ''}</div>
-      <div class="gtrack" style="width:${W}px;min-height:${H}px">${vlines}${bars}</div>
+      <div class="gtrack" style="width:${W}px;min-height:${H}px">${vlines}${bars}${g.lane === 'lastcheck' && view === 'area' && lcMissing().includes(g.key) ? (() => {
+        const ci = T(S.rules.checkin), a0 = ci - 60;
+        return `<button class="lc-warn" data-lcwarn="${esc(g.key)}" style="left:${x(a0)}px;width:${Math.max(60, 60 * ppm - 2)}px" title="${esc(areaName(g.key))}：今天有客人入住，還沒安排 Last check。點一下新增">⚠️ 未安排</button>`;
+      })() : ''}</div>
     </div>`;
   }
   inner.innerHTML = html;
@@ -1392,20 +1424,27 @@ function renderEditor() {
   </div>`;
 }
 
+/* a facility needs a last check when guests arrive today: rooms on today's DCL, or "need" on the check list */
+function lcNeeded() {
+  const its = items().items, arr = parseArrivals(P.arrivals || '', S).items;
+  return S.areas.map(a => a.id).filter(id => its.some(i => !i.skip && i.area === id) || arr.some(x => x.area === id && (x.type === 'in' || x.type === 'outin')));
+}
+const lcMissing = () => P.blocks.length ? lcNeeded().filter(id => !P.blocks.some(b => b.area === id && isLC(b))) : [];
 function lcListText() {
   const its = items().items, arr = parseArrivals(P.arrivals || '', S).items;
   const lines = [`【${P.date.replace(/-/g, '')} Last check】`];
   let any = false;
   for (const a of S.areas) {
     const bl = P.blocks.filter(b => b.area === a.id && isLC(b)).sort((x, y) => x.start - y.start);
-    const busy = bl.length || its.some(i => !i.skip && i.area === a.id) || arr.some(x => x.area === a.id && x.type !== 'empty');
-    if (!busy) continue;
+    if (!bl.length && !lcNeeded().includes(a.id)) continue;
     any = true;
     const who = bl.map(b => {
       const extra = (b.rooms || []).length ? ' ' + b.rooms.join('、') : (b.kind === 'fixed' && !/^last\s*check$/i.test(b.label || '') ? ' ' + b.label : '');
-      return `${b.staff}（${fmt(b.start)}–${fmt(b.start + b.dur)}${extra}）`;
+      const s = lcStep(b);
+      const ex2 = s && !(b.rooms || []).length ? '' : extra;   // "残り部屋" already says it
+      return `${b.staff}（${fmt(b.start)}–${fmt(b.start + b.dur)}${s ? ' ' + LC_TAG[s].ja : ''}${ex2}）`;
     });
-    lines.push(`${a.ja && a.ja !== a.name ? a.ja + '（' + a.name + '）' : a.name}：${who.length ? who.join('、') : '未安排'}`);
+    lines.push(`${a.ja && a.ja !== a.name ? a.ja + '（' + a.name + '）' : a.name}：${who.length ? who.join('、') : '⚠️ 未安排'}`);
   }
   return any ? lines.join('\n') : '';
 }
@@ -1414,7 +1453,7 @@ function renderLcList() {
   const txt = P.blocks.length ? lcListText() : '';
   box.hidden = !txt;
   if (!txt) return;
-  const rows = txt.split('\n').slice(1).map(l => { const [k, ...v] = l.split('：'); const val = v.join('：'); return `<div class="lc-row"><b>${esc(k)}</b><span class="${val === '未安排' ? 'lc-none' : ''}">${esc(val)}</span></div>`; }).join('');
+  const rows = txt.split('\n').slice(1).map(l => { const [k, ...v] = l.split('：'); const val = v.join('：'); return `<div class="lc-row"><b>${esc(k)}</b><span class="${val === '⚠️ 未安排' ? 'lc-none' : ''}">${esc(val)}</span></div>`; }).join('');
   box.innerHTML = `<h2>Last check 一覽 <button class="btn sm" id="lcCopy">複製</button></h2><div class="lc-list">${rows}</div><pre class="share" id="lcText" hidden>${esc(txt)}</pre>`;
 }
 document.addEventListener('click', e => {
@@ -1426,6 +1465,7 @@ function renderIssuesShare() {
   renderLcList();
   const its = items();
   const issues = P.blocks.length ? findIssues(P, its.items, P.staffDay, S) : [];
+  issues.unshift(...lcMissing().map(id => ({ lvl: 'bad', ids: [], msg: `${areaName(id)} 今天有客人入住，還沒安排 Last check` })));
   const box = $('issues');
   if (!P.blocks.length) box.innerHTML = '<div class="hint">排班後，這裡會列出時段重疊、PR 房來不及、超過下班時間等問題。</div>';
   else if (!issues.length) box.innerHTML = '<div class="ok">沒有問題：所有 PR 房在入住前完成，沒有人重疊或超時。</div>';
@@ -1825,6 +1865,17 @@ function endDrag(e, cancel) {
 }
 $('boardInner').addEventListener('pointerup', e => endDrag(e, false));
 $('boardInner').addEventListener('click', e => {
+  const warn = e.target.closest('[data-lcwarn]');
+  if (warn) {   // add a last check at check-in minus one hour, then pick who goes
+    const area = warn.dataset.lcwarn, st = T(S.rules.checkin) - 60;
+    const on = P.staffDay.filter(s => s.on);
+    const who = on.find(s => st >= T(s.start) && st < T(s.end)) || on[0] || { name: S.staff[0]?.name || '' };
+    const b = { id: 'b' + (P.nextId++), kind: 'lastcheck', staff: who.name, area, start: st, dur: 30, rooms: [], parts: [], label: 'Last check' };
+    P.blocks.push(b); P.edited = true; selId = b.id; changed();
+    $('editor').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    toast(`已新增 ${areaName(area)} ${fmt(st)} 的 Last check，請在下方選擇人員`);
+    return;
+  }
   if (e.target.closest('.bar')) return;
   const track = e.target.closest('.gtrack'); if (!track) return;
   const g = track.closest('.group'); const key = g.dataset.group;
