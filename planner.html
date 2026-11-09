@@ -822,8 +822,15 @@ async function loadRoster() {
 function emailFor(name) {
   const st = S.staff.find(s => s.name === name);
   if (st && st.email) return st.email;
-  const n = name.toLowerCase();
-  const r = (sendState.roster || []).find(r => [r.nickname, r.name, (r.email || '').split('@')[0]].some(x => (x || '').trim().toLowerCase() === n));
+  const n = name.trim().toLowerCase(), ros = sendState.roster || [];
+  const low = x => (x || '').trim().toLowerCase();
+  // 1) same name, nickname or email name
+  let r = ros.find(r => [r.nickname, r.name, (r.email || '').split('@')[0]].some(x => low(x) === n));
+  // 2) one name starts with the other (Chau ↔ Chaud), names only, and only if exactly one person fits
+  if (!r && n.length >= 3) {
+    const hit = ros.filter(r => [r.nickname, r.name].some(x => { const v = low(x); return v.length >= 3 && (v.startsWith(n) || n.startsWith(v)); }));
+    if (hit.length === 1) r = hit[0];
+  }
   return r ? r.email : '';
 }
 
@@ -843,37 +850,45 @@ function staffBlocksJa(name, its) {
   const A = parseArrivals(P.arrivals || '', S), arr = A.items;
   const mine = P.blocks.filter(b => b.staff === name).sort((a, b) => a.start - b.start);
   const insp = mine.filter(b => b.kind === 'inspect');
-  const areas = [...new Set(insp.map(b => b.area))];
-  const roomLine = (room, cleaned) => {
-    const a = arr.find(x => x.room === room), it = its.items.find(i => i.room === room);
+  const dcl = its.items.filter(i => !i.skip);
+  const cleanersOf = room => [...new Set(P.blocks.filter(x => x.kind === 'clean' && (x.rooms || []).includes(room)).map(x => jaName(x.staff)))];
+  const areaCleaners = area => [...new Set(P.blocks.filter(x => x.kind === 'clean' && x.area === area).map(x => jaName(x.staff)))];
+  // payment details are not for the room check
+  const noMoney = n => !/現金|cash|¥|￥|円|pay/i.test(n);
+  const roomLine = room => {
+    const a = arr.find(x => x.room === room), it = dcl.find(i => i.room === room);
     const st = a ? ({ in: '客有り', outin: '客有り', stay: '客有り（連泊）', empty: '客無し', out: '退房のみ' }[a.type] || '') : (it && it.mode === 'full' ? '客有り' : '');
     const g = a && a.guests != null ? a.guests : (it ? it.guests : null);
     const t = (a && (a.window || a.arrival)) || (it && it.arrival) || '';
     const p = [st];
-    if (g != null && st !== '客無し') p.push(`${g}名`);
+    if (g != null && st !== '客無し' && st !== '客有り（連泊）') p.push(`${g}名`);
     if (t) p.push(`${t} IN`);
-    if (cleaned) p.push('清掃済');
-    if (a) a.notes.forEach(n => p.push(noteJa(n)));
+    if (it) { const c = cleanersOf(room); p.push(c.length ? `清掃済（${c.join('・')}）` : '清掃（担当未定）'); }
+    else if (a && (a.type === 'in' || a.type === 'outin')) p.push('昨日清掃完成');   // guests today but not on today's cleaning list
+    if (a) a.notes.map(noteJa).filter(noMoney).forEach(n => p.push(n));
     return `${shortRoom(room)} ${p.filter(Boolean).join(' ')}`;
   };
+  const roomsIn = area => [...new Set([...dcl.filter(i => i.area === area).map(i => i.room), ...arr.filter(x => x.area === area).map(x => x.room)])];
   const out = [{ L: [`⏰${hhmm(T(sd.start || '13:00'))}⏰`] }];
   // one section per stop, in the order she walks; the first stop in an area also lists that area's other rooms
   const listed = new Set();
   for (const b of insp) {
-    const cleaners = [...new Set(P.blocks.filter(x => x.kind === 'clean' && x.area === b.area).map(x => jaName(x.staff)))];
     const first = !listed.has(b.area); listed.add(b.area);
-    const L = [`→${areaJa(b.area)}　${cleaners.join('　')}　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}${first ? '' : '（戻り）'}`];
+    const L = [`→${areaJa(b.area)}　${areaCleaners(b.area).join('　')}　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}${first ? '' : '（戻り）'}`];
     if (first) ((S.checkItemsJa || {})[b.area] || []).forEach(x => L.push(`・${x}`));
-    b.rooms.forEach(r => L.push(roomLine(r, true)));
+    b.rooms.forEach(r => L.push(roomLine(r)));
     if (first) {
       const checkedHere = insp.filter(x => x.area === b.area).flatMap(x => x.rooms);
-      arr.filter(x => x.area === b.area && !checkedHere.includes(x.room)).forEach(x => L.push(roomLine(x.room, false)));
+      roomsIn(b.area).filter(r => !checkedHere.includes(r)).forEach(r => L.push(roomLine(r)));
     }
     out.push({ L });
   }
-  // areas with guests today that she does not visit: listed for reference
-  const rest = [...new Set(arr.filter(x => x.area && !areas.includes(x.area)).map(x => x.area))];
-  for (const area of rest) out.push({ L: [`→${areaJa(area)}（参考）`, ...arr.filter(x => x.area === area).map(x => roomLine(x.room, false))] });
+  // the other areas with guests or cleaning today, in the usual area order
+  const rest = S.areas.map(a => a.id).filter(id => !listed.has(id) && roomsIn(id).length);
+  for (const area of rest) {
+    const c = areaCleaners(area);
+    out.push({ L: [`→${areaJa(area)}${c.length ? '　' + c.join('　') : ''}`, ...roomsIn(area).map(roomLine)] });
+  }
   if ((P.uninspected || []).length) out.push({ L: ['⏳ 時間が足りない：' + P.uninspected.map(shortRoom).join('、')] });
   const ex = (P.extra || {})[name] || {};
   if (ex.top && ex.top.trim()) out.splice(1, 0, { L: ex.top.trim().split('\n') });
