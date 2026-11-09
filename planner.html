@@ -171,6 +171,13 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
 .lc-warn:hover{background:var(--bad);color:var(--surface)}
 @media (prefers-reduced-motion: no-preference){.lc-warn{animation:lcpulse 1.6s ease-in-out infinite}}
 @keyframes lcpulse{50%{opacity:.6}}
+.palette{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.pchip{appearance:none;border:0;font:inherit;font-weight:700;font-size:13px;padding:5px 12px;border-radius:999px;background:var(--c);color:var(--bar-ink);cursor:grab;touch-action:none;user-select:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+.pchip:active{cursor:grabbing}
+.pchip.off{opacity:.55;background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--c)}
+.pchip small{font-weight:400;font-size:11px}
+.chip-ghost{position:fixed;z-index:30;pointer-events:none;transform:translate(-50%,-120%);background:var(--c);color:var(--bar-ink);font-weight:700;font-size:13px;padding:5px 12px;border-radius:999px;box-shadow:0 6px 16px rgba(0,0,0,.25)}
+.group.drop-lane .gtrack{outline:2px dashed var(--accent);outline-offset:-3px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20}
 @media (prefers-reduced-motion: no-preference){.bar{transition:box-shadow .12s}}
 </style>
@@ -229,6 +236,7 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
         </div>
       </div>
       <div id="confirmBox"></div>
+      <div class="palette" id="palette"></div>
       <div class="board" id="board"><div class="board-inner" id="boardInner"></div></div>
       <p class="hint" style="margin:8px 0 0"><b>點各區「屋外・屋上」或「Last check」那一行的空白處</b>可新增工作（落葉、除草、排水溝…）；拖曳色塊改時間（依員工檢視時，上下拖曳可換人）；拖右邊緣改長度；點一下色塊可細部修改。</p>
       <div id="editor" style="margin-top:12px"></div>
@@ -1285,6 +1293,59 @@ function lcStep(b) {
 }
 const lcTagText = b => { const s = lcStep(b); return s ? `${LC_TAG[s].ja} · ${LC_TAG[s].en}` : ''; };
 const lcLabel = b => 'Last check' + ((b.rooms || []).length ? ': ' + b.rooms.join(', ') : '');
+/* ---------- drag a person from the name buttons onto the timeline ---------- */
+function renderPalette() {
+  const box = $('palette'); if (!box) return;
+  const on = new Set(P.staffDay.filter(s => s.on).map(s => s.name));
+  const names = [...S.staff].sort((a, b) => on.has(b.name) - on.has(a.name)).map(s => s.name);
+  box.innerHTML = `<span class="hint">拖到時間軸：</span>` + names.map(n => `<button class="pchip ${on.has(n) ? '' : 'off'}" data-chip="${esc(n)}" style="--c:${staffColor(n)}" title="${on.has(n) ? '' : '今天沒排班：拖下去會自動設為上班'}">${esc(n)}${on.has(n) ? '' : ' <small>休</small>'}</button>`).join('');
+}
+let chip = null;
+document.addEventListener('pointerdown', e => {
+  const c = e.target.closest && e.target.closest('[data-chip]'); if (!c || e.button > 0) return;
+  e.preventDefault();
+  const g = document.createElement('div'); g.className = 'chip-ghost'; g.textContent = c.dataset.chip; g.style.setProperty('--c', c.style.getPropertyValue('--c'));
+  document.body.appendChild(g);
+  chip = { name: c.dataset.chip, g, x0: e.clientX, y0: e.clientY, moved: false };
+  moveGhost(e);
+});
+function moveGhost(e) { if (chip) { chip.g.style.left = e.clientX + 'px'; chip.g.style.top = e.clientY + 'px'; } }
+function laneUnder(e) {
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const track = el && el.closest && el.closest('#boardInner .gtrack');
+  return track ? { track, g: track.closest('.group') } : null;
+}
+document.addEventListener('pointermove', e => {
+  if (!chip) return;
+  if (Math.hypot(e.clientX - chip.x0, e.clientY - chip.y0) > 4) chip.moved = true;
+  moveGhost(e);
+  document.querySelectorAll('.group.drop-lane').forEach(x => x.classList.remove('drop-lane'));
+  const l = laneUnder(e); if (l) l.g.classList.add('drop-lane');
+});
+document.addEventListener('pointerup', e => {
+  if (!chip) return;
+  const c = chip; chip = null; c.g.remove();
+  document.querySelectorAll('.group.drop-lane').forEach(x => x.classList.remove('drop-lane'));
+  if (!c.moved) { toast('按住名字，拖到時間軸上想要的位置'); return; }
+  const l = laneUnder(e); if (!l) return;
+  if (view !== 'area') { toast('請切到「依區域」再拖'); return; }
+  const area = l.g.dataset.group, lane = l.g.dataset.lane;
+  const xpx = e.clientX - l.track.getBoundingClientRect().left;
+  const start = Math.max(geo.d0, Math.min(geo.d1 - 15, Math.round((geo.d0 + xpx / geo.ppm) / 15) * 15));
+  const sd = P.staffDay.find(s => s.name === c.name);
+  if (sd && !sd.on) { sd.on = true; toast(`${c.name} 已設為今天上班`); }
+  const b = { id: 'b' + (P.nextId++), staff: c.name, area, start, rooms: [], parts: [], team: 1 };
+  if (lane === 'outdoor') Object.assign(b, { kind: 'task', dur: 60, tasks: [], label: 'Outdoor work' });
+  else if (lane === 'lastcheck') Object.assign(b, { kind: 'lastcheck', dur: 30, label: 'Last check' });
+  else {
+    b.kind = 'clean'; const n = fillWithArea(b, area, true);
+    if (!n) { b.dur = 60; toast(`${areaName(area)} 的房間都已有人負責：請在下方點選 ${c.name} 要幫忙的房間`); }
+    else toast(`${c.name} 帶入 ${areaName(area)} 還沒人負責的 ${n} 間房`);
+  }
+  P.blocks.push(b); P.edited = true; selId = b.id; changed();
+  $('editor').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+document.addEventListener('pointercancel', () => { if (chip) { chip.g.remove(); chip = null; } });
 function renderBoard() {
   const R = S.rules, d0 = T(R.dayStart), d1 = T(R.dayEnd);
   const boardW = $('board').clientWidth || 900;
@@ -1295,7 +1356,8 @@ function renderBoard() {
   const x = m => (m - d0) * ppm;
   const inner = $('boardInner');
   inner.style.width = (W + LABEL) + 'px';
-  if (!P.blocks.length) {
+  renderPalette();
+  if (!P.blocks.length && !P.dcl.trim()) {
     inner.style.width = '';
     inner.innerHTML = `<div class="empty">${P.dcl.trim() ? '按「自動排班」產生今天的分配。' : '貼上今天的 DCL，再按「自動排班」。'}</div>`;
     return;
@@ -1971,8 +2033,11 @@ function fitBlock(b) {
   b.dur = Math.max(15, b.parts.reduce((a, p) => a + p.dur, 0));
 }
 /* Moved to another area: take all of that area's rooms today (PR first), to be trimmed by hand */
-function fillWithArea(b, area) {
-  const its = items().items.filter(i => !i.skip && i.area === area);
+function fillWithArea(b, area, onlyFree) {
+  let its = items().items.filter(i => !i.skip && i.area === area);
+  if (onlyFree) {   // a new person: the rooms nobody has yet (all of them if every room is taken)
+    its = its.filter(i => !P.blocks.some(x => x !== b && x.kind === 'clean' && (x.rooms || []).includes(i.room)));
+  }
   its.sort((x, y) => (y.pr - x.pr) || ((roomDeadline(x, S) ?? 9999) - (roomDeadline(y, S) ?? 9999)));
   b.area = area; b.rooms = its.map(i => i.room); fitBlock(b);
   return its.length;
