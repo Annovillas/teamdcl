@@ -160,6 +160,10 @@
         </div>
       </div>
       <div class="card">
+        <div class="row hidden" id="plannerBar" style="align-items:center; margin-bottom:12px; background:var(--pine-soft); border-radius:10px; padding:10px 12px">
+          <span id="plannerInfo" class="hint" style="flex:1; min-width:200px; color:var(--pine)"></span>
+          <button class="btn-ghost btn btn-sm" id="pullPlanner" data-i18n="pullPlanner">↻ Planner から 2.0 以降を更新（1.0 はそのまま）</button>
+        </div>
         <div id="entries"></div>
         <button class="add" id="addEntry" style="width:100%; padding:11px" data-i18n="addEntry">＋ 時間区間を追加（1.0 / 2.0 …）</button>
       </div>
@@ -299,6 +303,9 @@ const T={
 };
 let lang=localStorage.getItem("teamdcl_lang")||"en"; if(!T[lang]) lang="en";
 Object.assign(T.en,{tabPlan:"Planner"}); Object.assign(T.ja,{tabPlan:"動線・割当"}); Object.assign(T.zh,{tabPlan:"排班"});
+Object.assign(T.en,{pullPlanner:"↻ Update 2.0+ from Planner (keep 1.0)", plannerFilled:"Filled from Planner ({name}, {t}) from 2.0. Write the early tasks in 1.0, then Save.", plannerSaved:"Saved content shown. Planner has a plan for {name} ({t}) — press the button to refresh 2.0+."});
+Object.assign(T.ja,{pullPlanner:"↻ Planner から 2.0 以降を更新（1.0 はそのまま）", plannerFilled:"Planner（{name}・{t}）の内容を 2.0 から入れました。1.0 に朝の作業を書いて保存してください。", plannerSaved:"保存済みの内容を表示中。Planner に {name} の割当（{t}）があります。ボタンで 2.0 以降を更新できます。"});
+Object.assign(T.zh,{pullPlanner:"↻ 用 Planner 更新 2.0 以後（1.0 不動）", plannerFilled:"已從 Planner（{name}・{t}）帶入，從 2.0 開始。請在 1.0 寫早上的安排，再按儲存。", plannerSaved:"目前顯示已儲存的內容。Planner 有 {name} 的排班（{t}），按右邊按鈕可更新 2.0 以後。"});
 Object.assign(T.en,{delTask:"Delete",delConfirm2:"Delete this staff's assignment for this day?",deleted:"Deleted ✓"});
 Object.assign(T.ja,{delTask:"削除",delConfirm2:"この日のこの担当者の作業を削除しますか？",deleted:"削除しました ✓"});
 Object.assign(T.zh,{delTask:"刪除",delConfirm2:"確定刪除這一天這位擔當者的作業？",deleted:"已刪除 ✓"});
@@ -573,8 +580,17 @@ async function loadForSelection(){
   const delBtn=q("deleteBtn");
   if(!curStaff){ seedEntries(); renderEntries(); renderPreview(); if(delBtn) delBtn.classList.add("hidden"); return; }
   const { data }=await db.from("assignments").select("*").eq("work_date", d).eq("staff_email", curStaff).maybeSingle();
-  if(data && data.data && Array.isArray(data.data.blocks) && data.data.blocks.length){ entries=data.data.blocks.map(normBlock); }
-  else seedEntries();
+  curDraft=await loadDraft(d, curStaff);
+  curFooter=null; curLayout=null;
+  if(data && data.data && Array.isArray(data.data.blocks) && data.data.blocks.length){
+    entries=data.data.blocks.map(normBlock);
+    if(data.data.footer!=null) curFooter=data.data.footer;
+    if(data.data.layout) curLayout=data.data.layout;
+    setPlannerBar(curDraft ? "saved" : null);
+  } else if(curDraft){
+    applyDraft(false);                       // 新規：1.0 は空欄（手入力用）、2.0 から Planner の内容
+    setPlannerBar("filled");
+  } else { seedEntries(); setPlannerBar(null); }
   if(delBtn) delBtn.classList.toggle("hidden", !data);   // 既存レコードがある時だけ削除ボタン
   renderEntries(); renderPreview();
 }
@@ -594,6 +610,7 @@ function convertBlock(e,t){
 function textEditor(e){
   const w=document.createElement("div");
   const ta=document.createElement("textarea"); ta.value=e.text||""; ta.placeholder=tr("phWork");
+  ta.rows=Math.max(2, (e.text||"").split("\n").length+1);
   ta.oninput=()=>{ e.text=ta.value; renderPreview(); }; w.appendChild(ta);
   const pool=document.createElement("div"); pool.className="pool";
   lcfg.pool.forEach(tok=>{ const b=document.createElement("button"); b.textContent=tok; b.onclick=()=>{ let v=ta.value; if(v&&!v.endsWith("\n")) v+="→"; v+=tok; ta.value=v; e.text=v; ta.focus(); renderPreview(); }; pool.appendChild(b); });
@@ -668,12 +685,48 @@ function renderEntries(){
     card.appendChild(body); host.appendChild(card);
   });
 }
-function currentData(){ return { blocks:entries, header:lcfg.header, footer:lcfg.footer }; }
+function currentData(){ const o={ blocks:entries, header:lcfg.header, footer:(curFooter!=null?curFooter:lcfg.footer) }; if(curLayout) o.layout=curLayout; return o; }
+
+/* ---------- Planner → 作成：同じ名前のスタッフに 2.0 以降を自動で入れる ---------- */
+let curDraft=null, curFooter=null, curLayout=null;
+async function loadDraft(date, email){
+  try{
+    const { data, error }=await db.from("planner_store").select("data").eq("key","drafts/"+date).maybeSingle();
+    if(error || !data || !data.data || !data.data.staff) return null;
+    const r=roster.find(x=>x.email===email)||{};
+    const names=[r.nickname, r.name, (email||"").split("@")[0]].filter(Boolean).map(x=>x.trim().toLowerCase());
+    for(const [nm,v] of Object.entries(data.data.staff)){
+      if((v.email && v.email===email) || names.includes(nm.trim().toLowerCase())) return { ...v, name:nm, updatedAt:data.data.updatedAt };
+    }
+  }catch(e){}
+  return null;
+}
+// keepFirst=true: 今の 1.0 を残して、2.0 以降だけ Planner の内容に置き換える
+function applyDraft(keepFirst){
+  const first=(keepFirst && entries[0]) ? entries[0] : {type:"text", text:""};
+  entries=[first, ...curDraft.blocks.map(normBlock)];
+  if(curDraft.footer!=null) curFooter=curDraft.footer;
+  curLayout="manual1";
+}
+function setPlannerBar(state){
+  const bar=q("plannerBar"); if(!bar) return;
+  bar.classList.toggle("hidden", !curDraft);
+  if(!curDraft) return;
+  const t=curDraft.updatedAt ? new Date(curDraft.updatedAt).toTimeString().slice(0,5) : "";
+  q("plannerInfo").textContent = state==="filled"
+    ? trf("plannerFilled",{name:curDraft.name, t})
+    : trf("plannerSaved",{name:curDraft.name, t});
+}
 function renderPreview(){ q("preview").innerHTML=renderRich(currentData(), q("mDate").value); }
 
 function wireAdminButtons(){
   q("addEntry").onclick=()=>{ entries.push({type:"text",text:""}); renderEntries(); renderPreview(); };
-  q("clearBtn").onclick=()=>{ seedEntries(); renderEntries(); renderPreview(); };
+  q("clearBtn").onclick=()=>{ seedEntries(); curLayout=null; curFooter=null; renderEntries(); renderPreview(); };
+  q("pullPlanner").onclick=async()=>{
+    curDraft=await loadDraft(q("mDate").value, curStaff);
+    if(!curDraft){ setPlannerBar(null); return; }
+    applyDraft(true); setPlannerBar("filled"); renderEntries(); renderPreview();
+  };
   q("deleteBtn").onclick=async()=>{
     if(!curStaff) return;
     if(!confirm(tr("delConfirm2"))) return;

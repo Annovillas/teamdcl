@@ -984,11 +984,23 @@ function sendList() {
   return names.map(n => ({ name: n, blocks: staffBlocks(n, its) })).filter(x => x.blocks.length);
 }
 
+/* Matrix DCL「作成」reads this: each person's planner content, by name and email */
+let lastDraft = '';
+function saveDraft(list, cfg) {
+  if (store.mode !== 'sb' || !P.blocks.length || !knownDates.has(P.date)) return; // not for the built-in example
+  const staff = {};
+  for (const x of list) staff[x.name] = { email: emailFor(x.name), blocks: x.blocks, footer: footerFor(x.name, cfg) };
+  const key = JSON.stringify(staff);
+  if (key === lastDraft) return;
+  lastDraft = key;
+  store.save('drafts/' + P.date, { updatedAt: new Date().toISOString(), staff }, 1200);
+}
 function renderSend() {
   const box = $('sendPanel'); if (!box) return;
   const list = P.blocks.length ? sendList() : [];
   const cfg = mdclCfg();
   const canSend = typeof SB_URL !== 'undefined';
+  if (canSend) saveDraft(list, cfg);
   let state = '';
   if (!canSend) state = '';
   else if (store.mode !== 'sb') {
@@ -1021,7 +1033,7 @@ function renderSend() {
     }).join('')}</div>
     ${canSend ? `<div class="row" style="margin-top:12px">
       <button class="btn primary" id="sendAll" ${store.mode === 'sb' && ready.length && !sendState.busy ? '' : 'disabled'}>${sendState.busy ? '送出中…' : `送出 ${ready.length} 人（${P.date}）`}</button>
-      <span class="hint">再次送出會覆蓋同一天同一人的內容。改了排班要重新送出。Header/Footer 用 Matrix DCL「設定」裡的內容。</span>
+      <span class="hint">內容也會自動帶到「Create／作成」同名員工的 2.0 以後；1.0 留給你手動寫早上的安排，送出時不會被覆蓋。</span>
     </div>` : ''}`}`;
 }
 
@@ -1058,7 +1070,12 @@ document.addEventListener('click', async e => {
     sendState.busy = true; renderSend();
     const at = new Date().toTimeString().slice(0, 5);
     for (const x of list) {
-      const payload = { work_date: P.date, staff_email: emailFor(x.name), data: { blocks: x.blocks, header: cfg.header, footer: footerFor(x.name, cfg), personName: x.name }, updated_at: new Date().toISOString() };
+      const em = emailFor(x.name);
+      // 1.0 is written by hand in「作成」(early tasks); keep it and put the planner content from 2.0
+      const prev = await store.sb.from('assignments').select('data').eq('work_date', P.date).eq('staff_email', em).maybeSingle();
+      const pd = prev.data && prev.data.data;
+      const first = pd && pd.layout === 'manual1' && Array.isArray(pd.blocks) && pd.blocks[0] ? pd.blocks[0] : { type: 'text', text: '' };
+      const payload = { work_date: P.date, staff_email: em, data: { blocks: [first, ...x.blocks], header: cfg.header, footer: footerFor(x.name, cfg), personName: x.name, layout: 'manual1' }, updated_at: new Date().toISOString() };
       const { error } = await store.sb.from('assignments').upsert(payload, { onConflict: 'work_date,staff_email' });
       sendState.sent[x.name] = error ? { ok: false, err: error.message } : { ok: true, at };
     }
@@ -1077,24 +1094,6 @@ if (typeof SB_URL !== 'undefined' && window.parent !== window && window.ResizeOb
 }
 /* ===== App ===== */
 const COLORS = ['#F2B629', '#8CC5A2', '#F09A7A', '#93B4E8', '#C9A6E0', '#7FD0D8', '#E6C98A', '#B9CF7A'];
-const SAMPLE_DATE = '2026-10-31';
-const SAMPLE_DCL = `20261031
-
-Maru 2 PR
-Runa 2 PR
-Rin 2 Cleaning Done but today's guest is 3 Additional 1 PR
-Grand Villa 12 (3 + 2 + 2F J3 + 1 Sofa bed + 3 Beside Sofa) PR
-Panorama 3 (J2 + D1)
-Villa B 2 (S2) PR
-Villa C 3 Cleaning Done But today's guest is 4 Additional 1 (J2 + D1 + S1) PR
-Cube 2 PR
-Villa E 4 (1F J3 + 2F 1 Suite)
-Villa F 7 ( 1F J2 + 2F 1 Suite + 1 Study Room + J2 Small + J1 Big) PR
-Villa G 4 (2F 2 Suite + J2 Small) PR
-
-‼️Attention Each villa‼️
-*Spider & Beehives クモの巣 & ハチの巣
-*Visible cigarette butts&Weeds 目立つ吸い殻 & 雑草`;
 
 const $ = id => document.getElementById(id);
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -1968,9 +1967,8 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
 
 /* ---------- boot ---------- */
 (async function boot() {
-  // first frame: the 10/31 example, scheduled
-  P = newPlan(SAMPLE_DATE, SAMPLE_DCL);
-  P.blocks = schedule(items().items, P.staffDay, S).blocks; P.sig = sig();
+  // first frame: today, empty until the DCL is pasted
+  P = newPlan(todayStr());
   if (!store.gate) { setSync('loading'); renderAll(); }
   await store.init();
   // Matrix DCL version: only the admin may see or use the planner
@@ -2036,11 +2034,8 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
   const dates = (await store.listPlans()).sort();
   dates.forEach(d => knownDates.add(d));
   const t = todayStr();
-  if (dates.includes(t)) await openDate(t);
-  else if (dates.length) await openDate(dates[dates.length - 1]);
-  else { P = newPlan(SAMPLE_DATE, SAMPLE_DCL); P.blocks = schedule(items().items, P.staffDay, S).blocks; P.sig = sig(); renderAll(); }
+  await openDate(t);   // always start on today: an empty page if nothing is planned yet (no example)
   setSync(store.mode === 'local' ? 'local' : 'saved');
-  if (!dates.length) $('sync').innerHTML += '・目前顯示 10/31 範例';
 })();
 
 </script>
