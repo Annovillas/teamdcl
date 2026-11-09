@@ -14,7 +14,7 @@
   --bg:#F1F3EE; --surface:#FFFFFF; --sunk:#E8EBE4; --ink:#1C2520; --muted:#5C6961; --line:#D6DBD2;
   --accent:#2E5B45; --accent-ink:#FFFFFF; --checkin:#D4432A; --check:#2B79D3; --check-bg:#DDEBFB;
   --bad:#C0402B; --bad-bg:#FBE6E1; --warn:#9A6A12; --warn-bg:#F8EED6; --ok:#2E7D4F;
-  --bar-ink:#1A1A1A; --task:#5E8A2E; --task-bg:#E6F0D8; --lane-out:#F5F9EF;
+  --bar-ink:#1A1A1A; --task:#5E8A2E; --task-bg:#E6F0D8; --lane-out:#F5F9EF; --lc:#7A4FB5; --lc-bg:#EEE6F8; --lane-lc:#FAF7FD;
   --f-body:"Noto Sans TC","PingFang TC","Hiragino Sans","Microsoft JhengHei",system-ui,sans-serif;
   --f-disp:"Noto Serif TC","Songti TC","PMingLiU",serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
@@ -22,11 +22,11 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111613; --surface:#19201B; --sunk:#141A16; --ink:#E4EAE4; --muted:#98A69C; --line:#2B352E;
   --accent:#86BB9C; --accent-ink:#0F1A13; --checkin:#FF6A4D; --check:#64A8F2; --check-bg:#16304A;
-  --bad:#FF8A73; --bad-bg:#3A1D17; --warn:#E7B957; --warn-bg:#33290F; --ok:#7FCB9A; --task:#9CCB6A; --task-bg:#223018; --lane-out:#161D15; color-scheme:dark}}
+  --bad:#FF8A73; --bad-bg:#3A1D17; --warn:#E7B957; --warn-bg:#33290F; --ok:#7FCB9A; --task:#9CCB6A; --task-bg:#223018; --lane-out:#161D15; --lc:#C2A2EE; --lc-bg:#2A2038; --lane-lc:#1A1720; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111613; --surface:#19201B; --sunk:#141A16; --ink:#E4EAE4; --muted:#98A69C; --line:#2B352E;
   --accent:#86BB9C; --accent-ink:#0F1A13; --checkin:#FF6A4D; --check:#64A8F2; --check-bg:#16304A;
-  --bad:#FF8A73; --bad-bg:#3A1D17; --warn:#E7B957; --warn-bg:#33290F; --ok:#7FCB9A; --task:#9CCB6A; --task-bg:#223018; --lane-out:#161D15; color-scheme:dark}
+  --bad:#FF8A73; --bad-bg:#3A1D17; --warn:#E7B957; --warn-bg:#33290F; --ok:#7FCB9A; --task:#9CCB6A; --task-bg:#223018; --lane-out:#161D15; --lc:#C2A2EE; --lc-bg:#2A2038; --lane-lc:#1A1720; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
 .wrap{max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px;display:grid;gap:16px}
@@ -146,6 +146,10 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
 .send-card{display:grid;gap:8px;align-content:start;min-width:0;border:1px solid var(--line);border-radius:8px;padding:10px}
 .send-card pre.share{max-height:none}
 .send-card textarea.extra{min-height:0;height:auto;flex:none;font-family:var(--f-body);font-size:13px;resize:vertical;border-style:dashed}
+.group.lcl .gtrack,.group.lcl .glabel{background:var(--lane-lc)}
+.group.lcl .glabel{color:var(--lc)}
+.bar.lc{background:repeating-linear-gradient(135deg,var(--lc-bg) 0 6px,transparent 6px 12px),var(--lc-bg);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--lc)}
+.bar.lc.sel{box-shadow:0 0 0 2px var(--ink),0 3px 10px rgba(0,0,0,.18)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20}
 @media (prefers-reduced-motion: no-preference){.bar{transition:box-shadow .12s}}
 </style>
@@ -205,7 +209,7 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
       </div>
       <div id="confirmBox"></div>
       <div class="board" id="board"><div class="board-inner" id="boardInner"></div></div>
-      <p class="hint" style="margin:8px 0 0"><b>點各區「屋外・屋上」那一行的空白處</b>可新增屋外・屋上工作（落葉、除草、排水溝…）；拖曳色塊改時間（依員工檢視時，上下拖曳可換人）；拖右邊緣改長度；點一下色塊可細部修改。</p>
+      <p class="hint" style="margin:8px 0 0"><b>點各區「屋外・屋上」或「Last check」那一行的空白處</b>可新增工作（落葉、除草、排水溝…）；拖曳色塊改時間（依員工檢視時，上下拖曳可換人）；拖右邊緣改長度；點一下色塊可細部修改。</p>
       <div id="editor" style="margin-top:12px"></div>
     </div>
 
@@ -549,8 +553,9 @@ function schedule(items, staffDay, S, keep = [], arrivals = []) {
   });
   for (const k of keep) {
     const s = staff.find(x => x.name === k.staff);
-    const b = { ...k, id: 'b' + id++, rooms: [] };
-    blocks.push(b); if (s) s.busy.push(b);
+    const b = { ...k, id: 'b' + id++, rooms: k.kind === 'lastcheck' ? (k.rooms || []) : [] };
+    blocks.push(b);
+    if (s && k.kind !== 'lastcheck') s.busy.push(b);   // a last check never takes time away from cleaning
   }
   for (const s of staff) {
     if (!s.ded) continue;
@@ -723,7 +728,7 @@ function findIssues(plan, items, staffDay, S) {
   if (short && spare.length) issues.push({ lvl: 'warn', ids: [], msg: `人手不夠：可以勾選後備人員 ${spare.map(s => s.name).join('、')}（或在 DCL 加一行時間），再按「自動排班」` });
   const on = new Map(staffDay.filter(s => s.on).map(s => [s.name, s]));
   const byStaff = {};
-  for (const b of plan.blocks) (byStaff[b.staff] = byStaff[b.staff] || []).push(b);
+  for (const b of plan.blocks) if (b.kind !== 'lastcheck') (byStaff[b.staff] = byStaff[b.staff] || []).push(b);  // last checks: no overlap / shift warnings
   for (const [name, bl] of Object.entries(byStaff)) {
     const sd = on.get(name);
     if (!sd) { issues.push({ lvl: 'bad', ids: bl.map(b => b.id), msg: `${name} 今天沒有排班，但被分配了工作` }); continue; }
@@ -872,7 +877,8 @@ function staffBlocksJa(name, its) {
   const out = [{ L: [`⏰${hhmm(T(sd.start || '13:00'))}⏰`] }];
   // one section per stop, in the order she walks; the first stop in an area also lists that area's other rooms
   const listed = new Set();
-  for (const b of insp) {
+  for (const b of mine.filter(x => x.kind === 'inspect' || x.kind === 'lastcheck')) {
+    if (b.kind === 'lastcheck') { out.push({ L: [`→${areaJa(b.area)}　ラストチェック　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}`, ...(b.rooms || []).map(r => roomLine(r))] }); continue; }
     const first = !listed.has(b.area); listed.add(b.area);
     const L = [`→${areaJa(b.area)}　${areaCleaners(b.area).join('　')}　${hhmm(b.start)}〜${hhmm(b.start + b.dur)}${first ? '' : '（戻り）'}`];
     if (first) ((S.checkItemsJa || {})[b.area] || []).forEach(x => L.push(`・${x}`));
@@ -1161,7 +1167,7 @@ const areaName = id => (S.areas.find(a => a.id === id) || {}).name || (id === '_
 
 function runAuto() {
   const parsed = items();
-  const r = schedule(parsed.items, P.staffDay, S, P.blocks.filter(b => b.kind === 'task'), parseArrivals(P.arrivals || '', S).items);
+  const r = schedule(parsed.items, P.staffDay, S, P.blocks.filter(b => b.kind === 'task' || b.kind === 'lastcheck'), parseArrivals(P.arrivals || '', S).items);
   P.blocks = r.blocks; P.unplaced = r.unplaced; P.uninspected = r.uninspected || []; P.lateChecks = r.lateChecks || []; P.nextId = r.nextId; P.sig = sig(); selId = null;
   savePlan(); renderAll();
   toast('已重新排班');
@@ -1234,6 +1240,9 @@ function renderStaffDay() {
 }
 
 let geo = null;
+/* Last check slots: added by hand (kind 'lastcheck') plus the fixed "Last check / 残りチェック" tasks */
+const isLC = b => b.kind === 'lastcheck' || (b.kind === 'fixed' && /last\s*check|残り\s*チェック/i.test(b.label || ''));
+const lcLabel = b => 'Last check' + ((b.rooms || []).length ? ': ' + b.rooms.join(', ') : '');
 function renderBoard() {
   const R = S.rules, d0 = T(R.dayStart), d1 = T(R.dayEnd);
   const boardW = $('board').clientWidth || 900;
@@ -1266,8 +1275,9 @@ function renderBoard() {
     P.blocks.forEach(b => { if (!ids.includes(b.area)) ids.push(b.area); });
     // every area gets two lanes: rooms, then its outdoor work
     groups = ids.flatMap(id => [
-      { key: id, lane: 'rooms', title: areaName(id), sub: '', blocks: P.blocks.filter(b => b.area === id && b.kind !== 'task') },
-      { key: id, lane: 'outdoor', title: `${areaName(id)} 屋外・屋上`, sub: 'Outdoor, Roof top Balcony', blocks: P.blocks.filter(b => b.area === id && b.kind === 'task') }
+      { key: id, lane: 'rooms', title: areaName(id), sub: '', blocks: P.blocks.filter(b => b.area === id && b.kind !== 'task' && !isLC(b)) },
+      { key: id, lane: 'outdoor', title: `${areaName(id)} 屋外・屋上`, sub: 'Outdoor, Roof top Balcony', blocks: P.blocks.filter(b => b.area === id && b.kind === 'task') },
+      { key: id, lane: 'lastcheck', title: `${areaName(id)} Last check`, sub: 'ラストチェック', blocks: P.blocks.filter(b => b.area === id && isLC(b)) }
     ]);
   } else {
     const names = P.staffDay.filter(s => s.on).map(s => s.name);
@@ -1295,7 +1305,7 @@ function renderBoard() {
       const main = view === 'area' ? b.staff : (fixed ? areaName(b.area) : areaName(b.area));
       const subt = view === 'area' ? rooms : (fixed ? b.label : rooms);
       const prLate = badIds.has(b.id);
-      bars += `<div class="bar ${fixed ? 'fixed' : ''} ${b.kind === 'task' ? 'task' : ''} ${b.id === selId ? 'sel' : ''} ${prLate ? 'bad' : ''}" data-id="${b.id}"
+      bars += `<div class="bar ${fixed ? 'fixed' : ''} ${b.kind === 'task' ? 'task' : ''} ${isLC(b) ? 'lc' : ''} ${b.id === selId ? 'sel' : ''} ${prLate ? 'bad' : ''}" data-id="${b.id}"
         style="left:${x(b.start)}px;top:${top}px;width:${Math.max(18, b.dur * ppm - 2)}px;${fixed ? '' : `background:${staffColor(b.staff)}`}"
         title="${esc(`${b.staff}｜${areaName(b.area)}｜${fmt(b.start)}–${fmt(b.start + b.dur)}｜${rooms}`)}" tabindex="0" role="button">
         <span class="n">${esc(main)} <span class="mono" style="font-weight:400;font-size:11px">${fmt(b.start)}–${fmt(b.start + b.dur)}</span></span>
@@ -1303,7 +1313,7 @@ function renderBoard() {
         <span class="h" data-resize="${b.id}"></span>
       </div>`;
     }
-    html += `<div class="group ${g.lane === 'outdoor' ? 'out' : ''} ${g.lane === 'rooms' ? 'rooms' : ''}" data-group="${esc(g.key)}" data-lane="${g.lane || ''}">
+    html += `<div class="group ${g.lane === 'outdoor' ? 'out' : ''} ${g.lane === 'lastcheck' ? 'out lcl' : ''} ${g.lane === 'rooms' ? 'rooms' : ''}" data-group="${esc(g.key)}" data-lane="${g.lane || ''}">
       <div class="glabel" style="width:${LABEL}px;min-height:${H}px">${esc(g.title)}${g.sub ? `<small>${esc(g.sub)}</small>` : ''}</div>
       <div class="gtrack" style="width:${W}px;min-height:${H}px">${vlines}${bars}</div>
     </div>`;
@@ -1340,6 +1350,11 @@ function renderEditor() {
       <label class="field">結束${tsel(fmt(b.start + b.dur), 'id="edEnd"')}</label>
       ${fixed && b.kind !== 'task' ? `<label class="field">名稱<input id="edLabel" value="${esc(b.label || '')}"></label>` : ''}
     </div>
+    ${b.kind === 'lastcheck' ? (() => {
+      const arr = parseArrivals(P.arrivals || '', S).items;
+      const rooms = [...new Set([...items().items.filter(i => !i.skip && i.area === b.area).map(i => i.room), ...arr.filter(x => x.area === b.area && x.type !== 'empty').map(x => x.room)])];
+      return `<div class="field">要 Last check 的房間（可不選）<div class="chips">${rooms.map(r => `<button class="chip" data-edlc="${esc(r)}" aria-pressed="${(b.rooms || []).includes(r)}">${esc(r)}</button>`).join('') || '<span class="hint">今天這區沒有房間資料</span>'}</div></div>`;
+    })() : ''}
     ${b.kind === 'task' ? (() => {
       const menu = (S.outdoor || {})[b.area] || [];
       const extra = (b.tasks || []).filter(x => !menu.includes(x));
@@ -1413,7 +1428,7 @@ function checklistText(sd, its) {
   }
   // other fixed blocks on this person (e.g. Last check)
   for (const b of mine.filter(b => b.kind === 'task')) events.push({ t: b.start, o: 0, lines: [`${hhmm(b.start)}–${hhmm(b.start + b.dur)}  Outdoor / Roof top Balcony (${areaName(b.area)})`, ...(b.tasks || []).map(x => `   □ ${x}`)] });
-  for (const b of mine.filter(b => b.kind === 'fixed')) events.push({ t: b.start, o: 0, lines: [`${hhmm(b.start)}–${hhmm(b.start + b.dur)}  ${b.label || ''} (${areaName(b.area)})`] });
+  for (const b of mine.filter(b => b.kind === 'fixed' || b.kind === 'lastcheck')) events.push({ t: b.start, o: 0, lines: [`${hhmm(b.start)}–${hhmm(b.start + b.dur)}  ${b.label || ''} (${areaName(b.area)})`] });
   // rooms
   const wins = [];
   for (const b of mine.filter(b => b.kind === 'clean')) for (const w of partWindows(b)) wins.push({ ...w, area: b.area });
@@ -1766,7 +1781,18 @@ $('boardInner').addEventListener('click', e => {
   if (e.target.closest('.bar')) return;
   const track = e.target.closest('.gtrack'); if (!track) return;
   const g = track.closest('.group'); const key = g.dataset.group;
-  if (view === 'area' && g.dataset.lane !== 'outdoor') return;
+  if (view === 'area' && g.dataset.lane !== 'outdoor' && g.dataset.lane !== 'lastcheck') return;
+  if (view === 'area' && g.dataset.lane === 'lastcheck') {
+    const x0 = e.clientX - track.getBoundingClientRect().left;
+    const st = Math.max(geo.d0, Math.floor((geo.d0 + x0 / geo.ppm) / 15) * 15);
+    const on = P.staffDay.filter(s => s.on);
+    const who = on.find(s => st >= T(s.start) && st < T(s.end)) || on[0] || { name: S.staff[0]?.name || '' };
+    const b = { id: 'b' + (P.nextId++), kind: 'lastcheck', staff: who.name, area: key, start: st, dur: 30, rooms: [], parts: [], label: 'Last check' };
+    P.blocks.push(b); P.edited = true; selId = b.id; changed();
+    $('editor').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    toast(`已新增 ${fmt(st)} 的 Last check，請在下方選擇人員`);
+    return;
+  }
   const x = e.clientX - track.getBoundingClientRect().left;
   const start = Math.max(geo.d0, Math.floor((geo.d0 + x / geo.ppm) / 15) * 15);
   const dur = 60;
@@ -1808,6 +1834,8 @@ $('editor').addEventListener('click', e => {
     P.blocks.push(c); P.edited = true; changed(); toast('已切成兩段，可以把其中一段改給別人'); return;
   }
   if (e.target.id === 'edDup') { const c = clone(b); c.id = 'b' + (P.nextId++); P.blocks.push(c); selId = c.id; P.edited = true; changed(); return; }
+  const lc = e.target.closest('[data-edlc]');
+  if (lc) { const r = lc.dataset.edlc; b.rooms = (b.rooms || []).includes(r) ? b.rooms.filter(x => x !== r) : [...(b.rooms || []), r]; b.label = lcLabel(b); P.edited = true; changed(); return; }
   const kc = e.target.closest('[data-edkind]');
   if (kc && kc.dataset.edkind !== b.kind) {
     if (kc.dataset.edkind === 'task') {
