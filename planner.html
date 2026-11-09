@@ -2223,6 +2223,8 @@ async function openDate(date) {
   if (saved) { P = saved; P.overrides = P.overrides || {}; P.blocks = P.blocks || []; }
   else P = newPlan(date);
   selId = null; syncStaffDay(); renderAll();
+  // keep the iPad monitor's copy up to date even when nothing is edited (e.g. a plan made before this version)
+  if (saved && P.blocks.length && typeof SB_URL !== 'undefined' && store.mode === 'sb' && !window.HK_MONITOR) store.save('monitor/' + P.date, monitorDoc(), 0);
 }
 $('date').addEventListener('change', e => openDate(e.target.value));
 $('prevDay').onclick = () => openDate(shiftDate(P.date, -1));
