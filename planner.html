@@ -192,6 +192,19 @@ select.tsel{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabula
 .board.compact .lc-warn{top:2px;height:22px;font-size:11.5px}
 .board.compact .group.thin .glabel{font-size:10.5px;padding-block:0;line-height:16px;opacity:.75}
 .board.compact .group.thin .glabel small{display:none}
+.now-flag{position:absolute;top:4px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font-family:var(--f-mono);font-size:11.5px;padding:1px 6px;border-radius:4px;z-index:4}
+.vline.now{border-left:3px solid var(--accent);opacity:1;z-index:1}
+/* monitor.html: only the timeline, big and calm */
+.monitor header.top,.monitor nav.tabs,.monitor #view-plan>.grid2,.monitor #messages,.monitor #checklists,.monitor #lcList,.monitor #sendPanel,.monitor #editor,.monitor .boardbar,.monitor #palette,.monitor #confirmBox,.monitor #view-plan .panel>p.hint,.monitor #view-set{display:none!important}
+.monitor .wrap{max-width:none;padding-block:10px 10px;gap:8px}
+.monitor #view-plan>.panel{padding:8px;border:0;background:transparent}
+.monitor #boardInner{pointer-events:none}
+.mon-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.mon-title{font-family:var(--f-disp);font-size:24px}
+.mon-right{display:flex;align-items:baseline;gap:14px}
+.mon-clock{font-family:var(--f-mono);font-size:34px;font-weight:500;font-variant-numeric:tabular-nums}
+.mon-upd{font-size:13px;color:var(--muted)}
+.mon-login{display:grid;gap:10px;max-width:360px;margin:40px auto;text-align:left;pointer-events:auto}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20}
 @media (prefers-reduced-motion: no-preference){.bar{transition:box-shadow .12s}}
 </style>
@@ -1195,7 +1208,18 @@ function setSync(st) {
   el.innerHTML = m[st] || '';
 }
 const saveSettings = () => store.save('app/settings', S);
-const savePlan = () => { if (P) { knownDates.add(P.date); store.save('plans/' + P.date, P); } };
+const savePlan = () => {
+  if (!P) return;
+  knownDates.add(P.date); store.save('plans/' + P.date, P);
+  if (typeof SB_URL !== 'undefined' && store.mode === 'sb' && !window.HK_MONITOR) store.save('monitor/' + P.date, monitorDoc());
+};
+function monitorDoc() {
+  return {
+    updatedAt: new Date().toISOString(),
+    plan: { date: P.date, dcl: P.dcl, overrides: P.overrides, staffDay: P.staffDay, blocks: P.blocks, unplaced: P.unplaced || [], nextId: 1 },
+    settings: { areas: S.areas, rooms: S.rooms, rules: S.rules, staff: S.staff.map(s => ({ name: s.name, color: s.color, role: s.role, ja: s.ja })) }
+  };
+}
 
 /* ---------- plan helpers ---------- */
 const ROLE_NAME = { clean: '清掃', inspector: '品質確認', backup: '後備' };
@@ -1387,9 +1411,13 @@ function renderBoard() {
   for (let m = Math.ceil(d0 / 30) * 30; m < d1; m += 30) ticks += `<div class="tick ${m % 60 ? 'half' : ''}" style="left:${LABEL + x(m)}px"><span>${fmt(m)}</span></div>`;
   const ci = T(R.checkin);
   ticks += `<div class="checkin-flag" style="left:${LABEL + x(ci)}px">${fmt(ci)} 入住</div>`;
+  const nowD = new Date(), nowM = nowD.getHours() * 60 + nowD.getMinutes();
+  const showNow = window.HK_MONITOR && P.date === todayStr() && nowM > d0 && nowM < d1;
+  if (showNow) ticks += `<div class="now-flag" style="left:${LABEL + x(nowM)}px">現在 ${fmt(nowM)}</div>`;
   let vlines = '';
   for (let m = Math.ceil(d0 / 30) * 30; m < d1; m += 30) vlines += `<div class="vline ${m % 60 ? '' : 'hour'}" style="left:${x(m)}px"></div>`;
   vlines += `<div class="vline ci" style="left:${x(ci)}px"></div>`;
+  if (showNow) vlines += `<div class="vline now" style="left:${x(nowM)}px"></div>`;
   // groups
   let groups;
   if (view === 'area') {
@@ -2204,6 +2232,7 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
 
 /* ---------- boot ---------- */
 (async function boot() {
+  if (window.HK_MONITOR) { monitorBoot(); return; }   // monitor.html: read-only big screen
   // first frame: today, empty until the DCL is pasted
   P = newPlan(todayStr());
   if (!store.gate) { setSync('loading'); renderAll(); }
